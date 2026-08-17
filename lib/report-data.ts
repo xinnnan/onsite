@@ -4,6 +4,28 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type SnapshotSource = Record<string, string | null | undefined>;
 
+async function fetchReportCompanyNames(filters: AttendanceFilters) {
+  const admin = createSupabaseAdminClient();
+  if (filters.workerId) {
+    const { data, error } = await admin.from("profiles").select("company").eq("id", filters.workerId).maybeSingle();
+    if (error) throw error;
+    return data?.company ? [data.company] : [];
+  }
+  if (filters.projectId) {
+    const { data, error } = await admin
+      .from("project_assignments")
+      .select("user:profiles!project_assignments_user_id_fkey(company)")
+      .eq("project_id", filters.projectId)
+      .eq("status", "ACTIVE");
+    if (error) throw error;
+    return (data || []).map((row) => {
+      const user = Array.isArray(row.user) ? row.user[0] : row.user;
+      return user?.company || "";
+    }).filter(Boolean);
+  }
+  return [];
+}
+
 export function getSessionSnapshot(row: Record<string, unknown>) {
   const projectValue = row.project;
   const eventValue = row.check_in_event;
@@ -24,7 +46,7 @@ export async function buildReportData(filters: AttendanceFilters) {
   const projectPromise = filters.projectId
     ? createSupabaseAdminClient().from("projects").select("*").eq("id", filters.projectId).maybeSingle()
     : Promise.resolve({ data: null, error: null });
-  const [sessions, projectResult] = await Promise.all([sessionsPromise, projectPromise]);
+  const [sessions, projectResult, assignedCompanies] = await Promise.all([sessionsPromise, projectPromise, fetchReportCompanyNames(filters)]);
   if (projectResult.error) throw projectResult.error;
   const workers = new Map<string, { name: string; company: string; days: Set<string>; seconds: number }>();
   let totalSeconds = 0;
@@ -43,9 +65,12 @@ export async function buildReportData(filters: AttendanceFilters) {
     current.seconds += seconds;
     workers.set(key, current);
   }
+  const attendanceCompanies = Array.from(workers.values()).map((row) => row.company).filter(Boolean);
+  const companyNames = [...new Set(attendanceCompanies.length ? attendanceCompanies : assignedCompanies)];
   return {
     sessions,
     selectedProject: projectResult.data,
+    companyName: companyNames.join(" / ") || "—",
     summary: {
       total_personnel: workers.size,
       total_work_sessions: sessions.length,
