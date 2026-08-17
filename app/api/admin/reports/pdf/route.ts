@@ -6,6 +6,8 @@ import { requireAuth } from "@/lib/auth-context";
 import { loadPrivateAssetAsJpegDataUri } from "@/lib/admin-data";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
 import { formatProjectCoordinates } from "@/lib/project-coordinates";
+import { buildPdfReportFilename } from "@/lib/report-filename";
+import { DEMO_COMPANY_NAME } from "@/lib/demo";
 
 export const runtime = "nodejs";
 
@@ -39,7 +41,7 @@ export async function POST(request: Request) {
   try {
     const { demo } = await requireAuth("ADMIN");
     const body = await request.json() as { project_id?: string; worker_id?: string; start?: string; end?: string; include_photos?: boolean };
-    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: "DropLetAI", worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null } }], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, companyName: "DropLetAI", summary: { total_personnel: 1,total_work_sessions:1,total_work_hours:9.18,total_work_days:1,incomplete_sessions:0 }, personnel: [{ name: "John Smith", company: "DropLetAI", days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME, worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null } }], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, selectedWorker: body.worker_id ? { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME } : null, companyName: DEMO_COMPANY_NAME, summary: { total_personnel: 1,total_work_sessions:1,total_work_hours:9.18,total_work_days:1,incomplete_sessions:0 }, personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
     const first = report.sessions[0];
     const snapshot = first ? getSessionSnapshot(first) : null;
     const selectedProject = report.selectedProject;
@@ -53,6 +55,9 @@ export async function POST(request: Request) {
       longitude: snapshot?.longitude ?? selectedProject?.longitude ?? null,
     };
     const projectCoordinates = formatProjectCoordinates(project.latitude, project.longitude);
+    const firstWorker = first ? (Array.isArray(first.worker) ? first.worker[0] : first.worker) : null;
+    const workerName = body.worker_id ? report.selectedWorker?.display_name || firstWorker?.display_name || "Selected-Personnel" : "All-Personnel";
+    const reportFilename = buildPdfReportFilename({ siteName: project.siteName || project.projectName, start: body.start, end: body.end, workerName });
     const projectMapUrl = await loadPrivateAssetAsJpegDataUri("project-assets", project.mapPath);
     const tableRows = report.sessions.slice(0, 250).map((row) => {
       const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
@@ -97,7 +102,7 @@ export async function POST(request: Request) {
           checkOutUrl ? h(Image, { style: styles.photo, src: checkOutUrl }) : h(View, { style: styles.photo }),
           h(Text, { style: styles.photoLabel }, "CHECK OUT"), h(Text, { style: styles.photoCode }, checkOutEvent?.record_code || "-"))),
       h(View,{style:styles.footer,fixed:true},h(Text,null,"Generated by OnSite"),h(Text,{render:({pageNumber,totalPages})=>`${pageNumber} / ${totalPages}`}))));
-    const doc = h(Document, null,
+    const doc = h(Document, { title: reportFilename.replace(/\.pdf$/i, ""), author: report.companyName },
       h(Page, { size: "A4", style: styles.page },
         h(Text, { style: styles.brand }, report.companyName),
         h(Text, { style: styles.title }, "SITE ATTENDANCE REPORT"), h(View, { style: styles.rule }),
@@ -125,6 +130,11 @@ export async function POST(request: Request) {
         h(View,{style:styles.footer,fixed:true},h(Text,null,"Generated by OnSite"),h(Text,{render:({pageNumber,totalPages})=>`${pageNumber} / ${totalPages}`}))),
       ...photoPages);
     const buffer = await renderToBuffer(doc);
-    return new Response(new Uint8Array(buffer), { headers: { "content-type": "application/pdf", "content-disposition": "attachment; filename=onsite-attendance-report.pdf", "cache-control": "no-store" } });
+    return new Response(new Uint8Array(buffer), { headers: {
+      "content-type": "application/pdf",
+      "content-disposition": `attachment; filename="onsite-attendance-report.pdf"; filename*=UTF-8''${encodeURIComponent(reportFilename)}`,
+      "x-report-filename": encodeURIComponent(reportFilename),
+      "cache-control": "no-store",
+    } });
   } catch (error) { return apiErrorResponse(error); }
 }

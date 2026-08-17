@@ -2,6 +2,7 @@ import { ApiError, apiErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
 import { signPrivateAsset } from "@/lib/admin-data";
+import { DEMO_COMPANY_NAME } from "@/lib/demo";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,7 @@ type PreviewRequest = {
 function demoPreview(body: PreviewRequest) {
   return {
     filters: body,
-    company_name: "DropLetAI",
+    company_name: DEMO_COMPANY_NAME,
     project: {
       customer_name: "adidas",
       project_name: "adidas Indy AMR",
@@ -26,8 +27,8 @@ function demoPreview(body: PreviewRequest) {
       map_url: null,
     },
     summary: { total_personnel: 1, total_work_sessions: 1, total_work_hours: 9.18, total_work_days: 1, incomplete_sessions: 0 },
-    personnel: [{ name: "John Smith", company: "DropLetAI", days_on_site: 1, hours: 9.18 }],
-    sessions: [{ id: "demo-session", date: "2026-08-17", worker_name: "John Smith", company: "DropLetAI", check_in: "2026-08-17T12:03:00Z", check_out: "2026-08-17T21:14:00Z", hours: 9.18, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。" }],
+    personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }],
+    sessions: [{ id: "demo-session", date: "2026-08-17", worker_name: "John Smith", company: DEMO_COMPANY_NAME, check_in: "2026-08-17T12:03:00Z", check_out: "2026-08-17T21:14:00Z", hours: 9.18, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。" }],
   };
 }
 

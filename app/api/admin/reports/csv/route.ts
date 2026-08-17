@@ -1,6 +1,7 @@
 import { apiErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
+import { DEMO_COMPANY_NAME } from "@/lib/demo";
 
 function csvCell(value: unknown) {
   const text = value == null ? "" : String(value);
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
     if (demo) {
       const demoRows = [
         ["Customer","Project","Site","Project Address","Project Latitude","Project Longitude","Date","Worker","Company","Worker Type","Check In","Check Out","Total Hours","Session Status","Daily Work Summary","Check-In Photo Reference","Check-Out Photo Reference"],
-        ["adidas","adidas Indy AMR","Indy Manufacturing Facility","8677 Impact Court, Indianapolis, IN 46219",39.780625,-86.045711,"2026-08-17","John Smith","DropLetAI","EMPLOYEE","2026-08-17T12:03:00Z","2026-08-17T21:14:00Z","9.18","COMPLETE","完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。","ATT-DEMO-IN","ATT-DEMO-OUT"],
+        ["adidas","adidas Indy AMR","Indy Manufacturing Facility","8677 Impact Court, Indianapolis, IN 46219",39.780625,-86.045711,"2026-08-17","John Smith",DEMO_COMPANY_NAME,"EMPLOYEE","2026-08-17T12:03:00Z","2026-08-17T21:14:00Z","9.18","COMPLETE","完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。","ATT-DEMO-IN","ATT-DEMO-OUT"],
       ];
       return new Response("\uFEFF" + demoRows.map((row) => row.map(csvCell).join(",")).join("\n"), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": "attachment; filename=onsite-attendance.csv" } });
     }

@@ -12,6 +12,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState
 import { usePathname, useRouter } from "next/navigation";
 import { useLanguage } from "@/app/lib/use-language";
 import { formatProjectCoordinates } from "@/lib/project-coordinates";
+import { DEMO_COMPANY_NAME } from "@/lib/demo";
 
 export type AdminView = "dashboard" | "users" | "projects" | "project-detail" | "assignments" | "attendance" | "attendance-detail" | "reports" | "audit";
 type Row = Record<string, any>;
@@ -29,7 +30,7 @@ const nav = [
 ] as const;
 
 const demoPeople = [
-  { id:"demo-1",username:"john01",display_name:"John Smith",company:"DropLetAI",worker_type:"EMPLOYEE",role:"WORKER",status:"ACTIVE" },
+  { id:"demo-1",username:"john01",display_name:"John Smith",company:DEMO_COMPANY_NAME,worker_type:"EMPLOYEE",role:"WORKER",status:"ACTIVE" },
   { id:"demo-2",username:"mike.chen",display_name:"Mike Chen",company:"Vector Systems",worker_type:"CONTRACTOR",role:"WORKER",status:"ACTIVE" },
   { id:"demo-3",username:"cgarcia",display_name:"Carlos Garcia",company:"BuildRight",worker_type:"SUBCONTRACTOR",role:"WORKER",status:"ACTIVE" },
 ];
@@ -214,7 +215,10 @@ function ReportsView({data,loading,error,load,t,locale,flash}:{data:Row;loading:
     const blob=await response.blob();
     const url=URL.createObjectURL(blob);
     const link=document.createElement("a");
-    link.href=url;link.download=`onsite-report.${type}`;link.click();URL.revokeObjectURL(url);flash(t.downloaded);
+    const encodedFilename=response.headers.get("x-report-filename");
+    let filename=`onsite-report.${type}`;
+    if(encodedFilename){try{filename=decodeURIComponent(encodedFilename)}catch{/* Keep the safe fallback filename. */}}
+    link.href=url;link.download=filename;link.click();URL.revokeObjectURL(url);flash(t.downloaded);
     setDownloading(null);
   }
 

@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { ApiError } from "@/lib/api";
 import { createSupabaseServerClient, isDemoMode, isSupabaseConfigured } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/lib/types";
+import { DEMO_COMPANY_NAME } from "@/lib/demo";
 
 export async function requireAuth(requiredRole?: UserRole) {
   const supabase = isSupabaseConfigured() ? await createSupabaseServerClient() : null;
@@ -17,7 +18,7 @@ export async function requireAuth(requiredRole?: UserRole) {
       auth_user_id: demoRole === "ADMIN" ? "demo-admin-auth" : "demo-worker-auth",
       username: demoRole === "ADMIN" ? "admin.demo" : "john01",
       display_name: demoRole === "ADMIN" ? "Alex Lee" : "John Smith",
-      company: "DropLetAI",
+      company: DEMO_COMPANY_NAME,
       worker_type: "EMPLOYEE",
       role: demoRole,
       status: "ACTIVE",

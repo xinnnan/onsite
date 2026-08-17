@@ -1,9 +1,8 @@
 import "server-only";
-import { createHash } from "node:crypto";
+import { createHash, randomInt } from "node:crypto";
 import { join } from "node:path";
 import sharp, { type OverlayOptions } from "sharp";
 import type { Profile, Project } from "@/lib/types";
-import { formatProjectCoordinates } from "@/lib/project-coordinates";
 
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -51,6 +50,14 @@ function formatTimestamp(timestamp: Date, timezone: string) {
   } catch {
     return timestamp.toISOString();
   }
+}
+
+function formatDynamicDisplayCoordinates(latitude: number | null, longitude: number | null) {
+  if (latitude == null || longitude == null) return null;
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return `${lat.toFixed(6)}${randomInt(0, 10)}, ${lng.toFixed(6)}${randomInt(0, 10)}`;
 }
 
 function textOverlay({
@@ -119,7 +126,7 @@ export async function createWatermarkedPhoto({
   const smallSize = Math.max(15, Math.round(width * 0.012));
   const address = formatProjectAddress(project);
   const time = formatTimestamp(timestamp, project.timezone);
-  const coordinates = formatProjectCoordinates(project.latitude, project.longitude);
+  const displayCoordinates = formatDynamicDisplayCoordinates(project.latitude, project.longitude);
   const panelTop = photoHeight + padding;
   const lineGap = Math.max(9, Math.round(width * 0.007));
   let textTop = panelTop;
@@ -140,22 +147,26 @@ export async function createWatermarkedPhoto({
   composite.push(textOverlay({ text: time, width: textWidth, size: smallSize, color: "#b7c8c2", weight: 400, top: textTop, left: padding }));
   composite.push(textOverlay({ text: recordCode, width: textWidth, size: smallSize, color: "#d9f99d", weight: 700, top: photoHeight + panelHeight - padding - smallSize - 2, left: padding }));
 
+  const mapLeft = width - mapWidth - padding;
+  const mapTop = photoHeight + padding;
   if (map) {
-    const mapLeft = width - mapWidth - padding;
-    const mapTop = photoHeight + padding;
     const mapImage = await sharp(map).rotate().resize({ width: mapWidth, height: mapHeight, fit: "cover" }).webp({ quality: 80 }).toBuffer();
     composite.push({ input: mapImage, top: mapTop, left: mapLeft });
-    if (coordinates) {
-      const badgeInset = Math.max(7, Math.round(width * 0.006));
-      const badgeHeight = Math.max(31, smallSize + 14);
-      composite.push({ input: { create: { width: mapWidth - badgeInset * 2, height: badgeHeight, channels: 4, background: "#082b22dc" } }, top: mapTop + badgeInset, left: mapLeft + badgeInset });
-      composite.push(textOverlay({ text: coordinates, width: mapWidth - badgeInset * 4, size: Math.max(11, smallSize - 3), color: "#ffffff", weight: 700, top: mapTop + badgeInset + 7, left: mapLeft + badgeInset * 2, align: "right" }));
-    }
   } else {
-    const mapLeft = width - mapWidth - padding;
-    composite.push({ input: { create: { width: mapWidth, height: mapHeight, channels: 4, background: "#173f34" } }, top: photoHeight + padding, left: mapLeft });
-    composite.push(textOverlay({ text: "PROJECT MAP", width: mapWidth, size: smallSize, color: "#8eaaa1", weight: 700, top: photoHeight + padding + Math.round(mapHeight * 0.38), left: mapLeft }));
-    composite.push(textOverlay({ text: "Not uploaded", width: mapWidth, size: Math.max(12, smallSize - 2), color: "#69857d", weight: 400, top: photoHeight + padding + Math.round(mapHeight * 0.54), left: mapLeft }));
+    composite.push({ input: { create: { width: mapWidth, height: mapHeight, channels: 4, background: "#173f34" } }, top: mapTop, left: mapLeft });
+    composite.push(textOverlay({ text: "PROJECT MAP", width: mapWidth, size: smallSize, color: "#8eaaa1", weight: 700, top: mapTop + Math.round(mapHeight * 0.38), left: mapLeft }));
+    composite.push(textOverlay({ text: "Not uploaded", width: mapWidth, size: Math.max(12, smallSize - 2), color: "#69857d", weight: 400, top: mapTop + Math.round(mapHeight * 0.54), left: mapLeft }));
+  }
+
+  if (displayCoordinates) {
+    const badgeInset = Math.max(7, Math.round(width * 0.006));
+    const badgeWidth = mapWidth - badgeInset * 2;
+    const badgeHeight = Math.max(54, smallSize * 2 + 20);
+    const badgeLeft = mapLeft + badgeInset;
+    const badgeTop = mapTop + badgeInset;
+    composite.push({ input: { create: { width: badgeWidth, height: badgeHeight, channels: 4, background: "#082b22e8" } }, top: badgeTop, left: badgeLeft });
+    composite.push(textOverlay({ text: "DISPLAY COORDINATES / 显示动态坐标", width: badgeWidth - badgeInset * 2, size: Math.max(9, smallSize - 6), color: "#b7e4c7", weight: 700, top: badgeTop + 7, left: badgeLeft + badgeInset, align: "right" }));
+    composite.push(textOverlay({ text: displayCoordinates, width: badgeWidth - badgeInset * 2, size: Math.max(11, smallSize - 3), color: "#ffffff", weight: 700, top: badgeTop + smallSize + 10, left: badgeLeft + badgeInset, align: "right" }));
   }
 
   return sharp({ create: { width, height: photoHeight + panelHeight, channels: 4, background: "#082b22" } })

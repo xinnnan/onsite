@@ -80,7 +80,7 @@ http://localhost:3000/auth/update-password
 insert into public.profiles (
   auth_user_id, username, display_name, company, worker_type, role, status
 ) values (
-  '<auth-user-uuid>', 'admin', 'Administrator', 'DropLetAI',
+  '<auth-user-uuid>', 'admin', 'Administrator', 'Example Robotics',
   'EMPLOYEE', 'ADMIN', 'ACTIVE'
 );
 ```

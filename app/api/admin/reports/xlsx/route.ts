@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { apiErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
+import { DEMO_COMPANY_NAME } from "@/lib/demo";
 
 export const runtime = "nodejs";
 
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
   try {
     const { demo } = await requireAuth("ADMIN");
     const body = await request.json() as { project_id?: string; worker_id?: string; start?: string; end?: string };
-    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: "DropLetAI", worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711 }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711 } }], summary: { total_personnel: 1, total_work_sessions: 1, total_work_hours: 9.18, total_work_days: 1, incomplete_sessions: 0 }, personnel: [{ name: "John Smith", company: "DropLetAI", days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME, worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711 }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711 } }], summary: { total_personnel: 1, total_work_sessions: 1, total_work_hours: 9.18, total_work_days: 1, incomplete_sessions: 0 }, personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
     const workbook = new ExcelJS.Workbook();
     workbook.creator = "现场通 OnSite";
     workbook.created = new Date();

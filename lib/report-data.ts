@@ -45,12 +45,17 @@ export function getSessionSnapshot(row: Record<string, unknown>) {
 }
 
 export async function buildReportData(filters: AttendanceFilters) {
+  const admin = createSupabaseAdminClient();
   const sessionsPromise = fetchAttendanceSessions(filters);
   const projectPromise = filters.projectId
-    ? createSupabaseAdminClient().from("projects").select("*").eq("id", filters.projectId).maybeSingle()
+    ? admin.from("projects").select("*").eq("id", filters.projectId).maybeSingle()
     : Promise.resolve({ data: null, error: null });
-  const [sessions, projectResult, assignedCompanies] = await Promise.all([sessionsPromise, projectPromise, fetchReportCompanyNames(filters)]);
+  const workerPromise = filters.workerId
+    ? admin.from("profiles").select("id,display_name,company").eq("id", filters.workerId).maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const [sessions, projectResult, workerResult, assignedCompanies] = await Promise.all([sessionsPromise, projectPromise, workerPromise, fetchReportCompanyNames(filters)]);
   if (projectResult.error) throw projectResult.error;
+  if (workerResult.error) throw workerResult.error;
   const workers = new Map<string, { name: string; company: string; days: Set<string>; seconds: number }>();
   let totalSeconds = 0;
   let incomplete = 0;
@@ -73,6 +78,7 @@ export async function buildReportData(filters: AttendanceFilters) {
   return {
     sessions,
     selectedProject: projectResult.data,
+    selectedWorker: workerResult.data,
     companyName: companyNames.join(" / ") || "—",
     summary: {
       total_personnel: workers.size,
