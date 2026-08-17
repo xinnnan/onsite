@@ -4,7 +4,7 @@
 
 ## 总结
 
-PRD 的 33 项 MVP 验收标准均已在代码中实现。远端 Supabase 已应用 `202608170001` 与 `202608170002` 两个迁移，Auth Site URL 已设置为正式域名。当前尚待发布的是本次仓库代码版本；Vercel 线上站点在 `main` 推送并完成 Deployment 后才会包含这些更新。
+PRD 的 33 项 MVP 验收标准均已实现并发布。远端 Supabase 已应用 `202608170001` 与 `202608170002` 两个迁移，Auth Site URL 已设置为正式域名；GitHub `main` 与 Vercel Production 均已更新并验证。
 
 ## MVP 验收矩阵
 
@@ -65,7 +65,7 @@ PRD 的 33 项 MVP 验收标准均已在代码中实现。远端 Supabase 已应
 - [x] 本地 `npm run build` 通过
 - [x] `npm audit --omit=dev` 为 0 vulnerabilities
 - [x] 浏览器桌面与 390px 手机断点验收通过
-- [ ] 将本次代码提交推送到 GitHub `main`
-- [ ] 等待并核对 Vercel Production Deployment
+- [x] 将本次代码提交推送到 GitHub `main`
+- [x] Vercel Production Deployment 成功，正式域名与安全响应头已核对
 - [ ] 使用真实 Worker 手机完成一次 Check In + Check Out
 - [ ] 使用真实 Admin 下载一份带照片 PDF 并核对客户内容
