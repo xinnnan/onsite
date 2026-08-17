@@ -17,7 +17,7 @@ export const workerUpdateSchema = z.object({
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 }).refine((value) => Object.keys(value).length > 0, "NO_CHANGES");
 
-export const projectSchema = z.object({
+const projectFields = z.object({
   project_code: z.string().trim().min(2).max(40),
   project_name: z.string().trim().min(2).max(160),
   customer_name: z.string().trim().min(2).max(160),
@@ -29,12 +29,28 @@ export const projectSchema = z.object({
   postal_code: z.string().trim().max(30).nullable().optional(),
   country: z.string().trim().min(2).max(100).default("United States"),
   timezone: z.string().trim().min(3).max(100),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   start_date: z.string().date().nullable().optional(),
   end_date: z.string().date().nullable().optional(),
   status: z.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]).default("ACTIVE"),
 });
 
-export const projectUpdateSchema = projectSchema.partial().refine((value) => Object.keys(value).length > 0, "NO_CHANGES");
+function coordinatePairIsValid(value: { latitude?: number | null; longitude?: number | null }) {
+  return (value.latitude == null) === (value.longitude == null);
+}
+
+export const projectSchema = projectFields.refine(coordinatePairIsValid, {
+  message: "LATITUDE_AND_LONGITUDE_REQUIRED_TOGETHER",
+  path: ["latitude"],
+});
+
+export const projectUpdateSchema = projectFields.partial()
+  .refine((value) => Object.keys(value).length > 0, "NO_CHANGES")
+  .refine(coordinatePairIsValid, {
+    message: "LATITUDE_AND_LONGITUDE_REQUIRED_TOGETHER",
+    path: ["latitude"],
+  });
 
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown) {
   const parsed = schema.safeParse(body);

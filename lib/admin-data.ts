@@ -19,9 +19,9 @@ export async function fetchAttendanceSessions(filters: AttendanceFilters = {}) {
   let query = admin.from("work_sessions").select(`
     *,
     worker:profiles!work_sessions_user_id_fkey(id,username,display_name,company,worker_type),
-    project:projects!work_sessions_project_id_fkey(id,project_code,project_name,customer_name,site_name,address_line_1,address_line_2,city,state,postal_code,country,timezone,map_image_path),
-    check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(id,record_code,event_type,server_timestamp,project_name_snapshot,customer_name_snapshot,site_name_snapshot,project_address_snapshot,project_timezone_snapshot,project_map_path_snapshot,original_photo_path,watermarked_photo_path),
-    check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(id,record_code,event_type,server_timestamp,project_name_snapshot,customer_name_snapshot,site_name_snapshot,project_address_snapshot,project_timezone_snapshot,project_map_path_snapshot,original_photo_path,watermarked_photo_path)
+    project:projects!work_sessions_project_id_fkey(id,project_code,project_name,customer_name,site_name,address_line_1,address_line_2,city,state,postal_code,country,timezone,map_image_path,latitude,longitude),
+    check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(id,record_code,event_type,server_timestamp,project_name_snapshot,customer_name_snapshot,site_name_snapshot,project_address_snapshot,project_timezone_snapshot,project_map_path_snapshot,project_latitude_snapshot,project_longitude_snapshot,original_photo_path,watermarked_photo_path),
+    check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(id,record_code,event_type,server_timestamp,project_name_snapshot,customer_name_snapshot,site_name_snapshot,project_address_snapshot,project_timezone_snapshot,project_map_path_snapshot,project_latitude_snapshot,project_longitude_snapshot,original_photo_path,watermarked_photo_path)
   `).order("check_in_time", { ascending: false }).limit(1000);
   if (filters.projectId) query = query.eq("project_id", filters.projectId);
   if (filters.workerId) query = query.eq("user_id", filters.workerId);

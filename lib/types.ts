@@ -31,6 +31,8 @@ export interface Project {
   country: string;
   timezone: string;
   map_image_path: string | null;
+  latitude: number | null;
+  longitude: number | null;
   start_date: string | null;
   end_date: string | null;
   status: ProjectStatus;

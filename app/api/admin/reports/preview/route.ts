@@ -1,6 +1,7 @@
 import { ApiError, apiErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
+import { signPrivateAsset } from "@/lib/admin-data";
 
 export const runtime = "nodejs";
 
@@ -20,10 +21,13 @@ function demoPreview(body: PreviewRequest) {
       project_name: "adidas Indy AMR",
       site_name: "Indy Manufacturing Facility",
       address: "8677 Impact Court, Indianapolis, IN 46219",
+      latitude: 39.780625,
+      longitude: -86.045711,
+      map_url: null,
     },
-    summary: { total_personnel: 0, total_work_sessions: 0, total_work_hours: 0, total_work_days: 0, incomplete_sessions: 0 },
-    personnel: [],
-    sessions: [],
+    summary: { total_personnel: 1, total_work_sessions: 1, total_work_hours: 9.18, total_work_days: 1, incomplete_sessions: 0 },
+    personnel: [{ name: "John Smith", company: "DropLetAI", days_on_site: 1, hours: 9.18 }],
+    sessions: [{ id: "demo-session", date: "2026-08-17", worker_name: "John Smith", company: "DropLetAI", check_in: "2026-08-17T12:03:00Z", check_out: "2026-08-17T21:14:00Z", hours: 9.18, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。" }],
   };
 }
 
@@ -44,6 +48,8 @@ export async function POST(request: Request) {
     const first = report.sessions[0];
     const snapshot = first ? getSessionSnapshot(first) : null;
     const project = report.selectedProject;
+    const mapPath = snapshot?.mapPath || project?.map_image_path || null;
+    const mapUrl = await signPrivateAsset("project-assets", typeof mapPath === "string" ? mapPath : null);
 
     return Response.json({
       filters: body,
@@ -53,6 +59,9 @@ export async function POST(request: Request) {
         project_name: snapshot?.projectName || project?.project_name || "—",
         site_name: snapshot?.siteName || project?.site_name || "—",
         address: snapshot?.address || [project?.address_line_1, project?.address_line_2, project?.city, project?.state, project?.postal_code].filter(Boolean).join(", ") || "—",
+        latitude: snapshot?.latitude ?? project?.latitude ?? null,
+        longitude: snapshot?.longitude ?? project?.longitude ?? null,
+        map_url: mapUrl,
       },
       summary: report.summary,
       personnel: report.personnel,
@@ -67,6 +76,7 @@ export async function POST(request: Request) {
           check_out: row.check_out_time,
           hours: row.duration_seconds == null ? null : Number((Number(row.duration_seconds) / 3600).toFixed(2)),
           status: row.status,
+          daily_work_summary: row.daily_work_summary || null,
         };
       }),
     }, { headers: { "cache-control": "no-store" } });

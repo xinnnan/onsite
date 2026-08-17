@@ -6,10 +6,11 @@ import { ArrowLeft, Camera, Check, Languages, RefreshCcw, ShieldCheck, TriangleA
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/app/lib/use-language";
+import { getWorkSummaryMetrics, isWorkSummaryValid, WORK_SUMMARY_LIMITS } from "@/lib/work-summary";
 
 const copy = {
-  zh: { titleIn: "拍摄签到自拍", titleOut: "拍摄签退自拍", hint: "请正对镜头并确保光线充足", allow: "需要相机权限以完成现场记录", noCamera: "无法打开相机，请检查浏览器权限后重试。", capture: "拍照", retake: "重拍", submitIn: "提交签到", submitOut: "提交签退", privacy: "照片将安全保存至私有存储", language: "English", preview: "照片预览", uploading: "正在安全提交…", submitError: "提交失败，请重试。照片尚未保存。" },
-  en: { titleIn: "Take a check-in selfie", titleOut: "Take a check-out selfie", hint: "Face the camera and make sure the light is good", allow: "Camera access is required for your field record", noCamera: "We could not open the camera. Check browser permissions and try again.", capture: "Take photo", retake: "Retake", submitIn: "Submit check in", submitOut: "Submit check out", privacy: "Your photo will be saved to private storage", language: "中文", preview: "Photo preview", uploading: "Submitting securely…", submitError: "Submission failed. Your photo was not saved. Try again." },
+  zh: { titleIn: "拍摄签到自拍", titleOut: "拍摄签退自拍", hint: "请正对镜头并确保光线充足", allow: "需要相机权限以完成现场记录", noCamera: "无法打开相机，请检查浏览器权限后重试。", capture: "拍照", retake: "重拍", submitIn: "提交签到", submitOut: "提交签退", privacyIn: "照片将安全保存至私有存储", privacyOut: "照片与工作总结将安全保存至私有存储", language: "English", preview: "照片预览", uploading: "正在安全提交…", submitError: "提交失败，请重试。照片尚未保存。", summaryTitle: "今日工作总结", summaryRequired: "必填", summaryHint: "请写明今天完成的工作，例如机器人或设备数量、检修维护、维修结果、备件使用、现场情况或学习内容。", summaryPlaceholder: "例如：今天完成 6 台机器人的例行检查，更换 2 个传感器，并测试运行状态正常。", summaryRule: "满足任一项即可：20 个汉字、10 个英文单词或 40 个有效字符", summaryProgress: (han:number,words:number,chars:number) => `汉字 ${han}/20 · 英文单词 ${words}/10 · 有效字符 ${chars}/40`, summaryError: "请先完成今日工作总结。" },
+  en: { titleIn: "Take a check-in selfie", titleOut: "Take a check-out selfie", hint: "Face the camera and make sure the light is good", allow: "Camera access is required for your field record", noCamera: "We could not open the camera. Check browser permissions and try again.", capture: "Take photo", retake: "Retake", submitIn: "Submit check in", submitOut: "Submit check out", privacyIn: "Your photo will be saved to private storage", privacyOut: "Your photo and work summary will be saved to private storage", language: "中文", preview: "Photo preview", uploading: "Submitting securely…", submitError: "Submission failed. Your photo was not saved. Try again.", summaryTitle: "Today's work summary", summaryRequired: "Required", summaryHint: "Describe today's completed work: robot or equipment count, inspection, maintenance, repair results, spare parts, site conditions, or learning.", summaryPlaceholder: "Example: Completed inspections on six robots, replaced two sensors, and verified normal operation.", summaryRule: "Meet any one: 20 Chinese characters, 10 English words, or 40 effective characters", summaryProgress: (han:number,words:number,chars:number) => `Chinese ${han}/20 · English words ${words}/10 · Characters ${chars}/40`, summaryError: "Complete today's work summary before submitting." },
 } as const;
 
 function CameraExperience() {
@@ -28,6 +29,9 @@ function CameraExperience() {
   const [cameraState, setCameraState] = useState<"loading" | "ready" | "error">("loading");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [workSummary, setWorkSummary] = useState("");
+  const summaryMetrics = getWorkSummaryMetrics(workSummary);
+  const summaryValid = isWorkSummaryValid(workSummary);
 
   useEffect(() => {
     let live = true;
@@ -72,6 +76,10 @@ function CameraExperience() {
 
   async function submitPhoto() {
     if (!photo || submitting) return;
+    if (eventType === "out" && !summaryValid) {
+      setSubmitError(t.summaryError);
+      return;
+    }
     setSubmitting(true);
     setSubmitError("");
     try {
@@ -80,6 +88,7 @@ function CameraExperience() {
       body.set("photo", new File([blob], "selfie.webp", { type: "image/webp" }));
       body.set("client_capture_time", captureTime || new Date().toISOString());
       if (eventType === "in") body.set("project_id", project);
+      else body.set("daily_work_summary", workSummary.trim());
       const response = await fetch(`/api/attendance/check-${eventType}`, { method: "POST", body });
       const result = await response.json() as { event?: { record_code?: string; server_timestamp?: string }; session?: { duration_seconds?: number }; error?: string };
       if (!response.ok || !result.event) throw new Error(result.error || "SUBMIT_FAILED");
@@ -120,13 +129,21 @@ function CameraExperience() {
         {!photo ? (
           <button className="shutter" type="button" onClick={capture} disabled={cameraState !== "ready"} aria-label={t.capture}><span><Camera size={25} /></span><strong>{t.capture}</strong></button>
         ) : (
-          <div className="camera-submit-row">
-            <button className="retake-button" type="button" onClick={retake}><RefreshCcw size={18} />{t.retake}</button>
-            <button className="submit-photo" type="button" onClick={submitPhoto} disabled={submitting}><Check size={19} />{submitting ? t.uploading : eventType === "out" ? t.submitOut : t.submitIn}</button>
-          </div>
+          <>
+            {eventType === "out" && <section className={`work-summary-card ${summaryValid ? "valid" : ""}`}>
+              <div className="work-summary-heading"><label htmlFor="daily-work-summary">{t.summaryTitle}</label><span>{summaryValid ? <><Check size={13}/>{locale === "zh" ? "已满足" : "Ready"}</> : t.summaryRequired}</span></div>
+              <p>{t.summaryHint}</p>
+              <textarea id="daily-work-summary" value={workSummary} onChange={(event)=>{setWorkSummary(event.target.value);setSubmitError("")}} placeholder={t.summaryPlaceholder} maxLength={WORK_SUMMARY_LIMITS.maximumCharacters} rows={5}/>
+              <div className="work-summary-progress"><span>{t.summaryProgress(summaryMetrics.chineseCharacters,summaryMetrics.englishWords,summaryMetrics.effectiveCharacters)}</span><small>{t.summaryRule}</small></div>
+            </section>}
+            <div className="camera-submit-row">
+              <button className="retake-button" type="button" onClick={retake}><RefreshCcw size={18} />{t.retake}</button>
+              <button className="submit-photo" type="button" onClick={submitPhoto} disabled={submitting || (eventType === "out" && !summaryValid)}><Check size={19} />{submitting ? t.uploading : eventType === "out" ? t.submitOut : t.submitIn}</button>
+            </div>
+          </>
         )}
         {submitError && <p className="camera-submit-error" role="alert">{submitError}</p>}
-        <p className="camera-privacy"><ShieldCheck size={15} />{t.privacy}</p>
+        <p className="camera-privacy"><ShieldCheck size={15} />{eventType === "out" ? t.privacyOut : t.privacyIn}</p>
       </section>
     </main>
   );

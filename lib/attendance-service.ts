@@ -87,7 +87,7 @@ export async function checkIn({ profile, projectId, photo, clientCaptureTime }: 
   return data;
 }
 
-export async function checkOut({ profile, photo, clientCaptureTime }: { profile: Profile; photo: File; clientCaptureTime?: string | null }) {
+export async function checkOut({ profile, photo, clientCaptureTime, dailyWorkSummary }: { profile: Profile; photo: File; clientCaptureTime?: string | null; dailyWorkSummary: string }) {
   const admin = createSupabaseAdminClient();
   const { data: session, error: sessionError } = await admin.from("work_sessions").select("project_id").eq("user_id", profile.id).eq("status", "OPEN").maybeSingle();
   if (sessionError || !session) throw new ApiError(409, "OPEN_SESSION_NOT_FOUND");
@@ -106,6 +106,7 @@ export async function checkOut({ profile, photo, clientCaptureTime }: { profile:
     p_photo_hash: assets.hash,
     p_client_capture_time: clientCaptureTime || null,
     p_server_timestamp: serverTimestamp.toISOString(),
+    p_daily_work_summary: dailyWorkSummary,
   });
   if (error) {
     await cleanupAssets([assets.originalPath]);

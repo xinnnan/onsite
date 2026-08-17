@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import sharp, { type OverlayOptions } from "sharp";
 import type { Profile, Project } from "@/lib/types";
+import { formatProjectCoordinates } from "@/lib/project-coordinates";
 
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -60,6 +61,7 @@ function textOverlay({
   top,
   left,
   weight = 600,
+  align = "left",
 }: {
   text: string;
   width: number;
@@ -68,6 +70,7 @@ function textOverlay({
   top: number;
   left: number;
   weight?: number;
+  align?: "left" | "centre" | "right";
 }): OverlayOptions {
   return {
     input: {
@@ -76,7 +79,7 @@ function textOverlay({
         font: `${WATERMARK_FONT_FAMILY} ${size}`,
         fontfile: WATERMARK_FONT_FILE,
         width,
-        align: "left",
+        align,
         wrap: "none",
         rgba: true,
       },
@@ -116,13 +119,14 @@ export async function createWatermarkedPhoto({
   const smallSize = Math.max(15, Math.round(width * 0.012));
   const address = formatProjectAddress(project);
   const time = formatTimestamp(timestamp, project.timezone);
+  const coordinates = formatProjectCoordinates(project.latitude, project.longitude);
   const panelTop = photoHeight + padding;
   const lineGap = Math.max(9, Math.round(width * 0.007));
   let textTop = panelTop;
 
   const composite: OverlayOptions[] = [
     { input: selfie, top: 0, left: 0 },
-    textOverlay({ text: "DROPLETAI SERVICES", width: textWidth, size: smallSize, color: "#b7e4c7", weight: 700, top: textTop, left: padding }),
+    textOverlay({ text: profile.company || "ONSITE SUPPORT PORTAL", width: textWidth, size: smallSize, color: "#b7e4c7", weight: 700, top: textTop, left: padding }),
   ];
   textTop += smallSize + lineGap;
   composite.push(textOverlay({ text: eventType === "CHECK_IN" ? "CHECK IN" : "CHECK OUT", width: textWidth, size: titleSize, color: "#ffffff", weight: 800, top: textTop, left: padding }));
@@ -137,8 +141,16 @@ export async function createWatermarkedPhoto({
   composite.push(textOverlay({ text: recordCode, width: textWidth, size: smallSize, color: "#d9f99d", weight: 700, top: photoHeight + panelHeight - padding - smallSize - 2, left: padding }));
 
   if (map) {
+    const mapLeft = width - mapWidth - padding;
+    const mapTop = photoHeight + padding;
     const mapImage = await sharp(map).rotate().resize({ width: mapWidth, height: mapHeight, fit: "cover" }).webp({ quality: 80 }).toBuffer();
-    composite.push({ input: mapImage, top: photoHeight + padding, left: width - mapWidth - padding });
+    composite.push({ input: mapImage, top: mapTop, left: mapLeft });
+    if (coordinates) {
+      const badgeInset = Math.max(7, Math.round(width * 0.006));
+      const badgeHeight = Math.max(31, smallSize + 14);
+      composite.push({ input: { create: { width: mapWidth - badgeInset * 2, height: badgeHeight, channels: 4, background: "#082b22dc" } }, top: mapTop + badgeInset, left: mapLeft + badgeInset });
+      composite.push(textOverlay({ text: coordinates, width: mapWidth - badgeInset * 4, size: Math.max(11, smallSize - 3), color: "#ffffff", weight: 700, top: mapTop + badgeInset + 7, left: mapLeft + badgeInset * 2, align: "right" }));
+    }
   } else {
     const mapLeft = width - mapWidth - padding;
     composite.push({ input: { create: { width: mapWidth, height: mapHeight, channels: 4, background: "#173f34" } }, top: photoHeight + padding, left: mapLeft });

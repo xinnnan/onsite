@@ -2,7 +2,7 @@ import "server-only";
 import { fetchAttendanceSessions, type AttendanceFilters } from "@/lib/admin-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-type SnapshotSource = Record<string, string | null | undefined>;
+type SnapshotSource = Record<string, string | number | null | undefined>;
 
 async function fetchReportCompanyNames(filters: AttendanceFilters) {
   const admin = createSupabaseAdminClient();
@@ -31,13 +31,16 @@ export function getSessionSnapshot(row: Record<string, unknown>) {
   const eventValue = row.check_in_event;
   const project = (Array.isArray(projectValue) ? projectValue[0] : projectValue) as SnapshotSource | null | undefined;
   const checkInEvent = (Array.isArray(eventValue) ? eventValue[0] : eventValue) as SnapshotSource | null | undefined;
+  const mapPath = checkInEvent?.project_map_path_snapshot || project?.map_image_path || null;
   return {
-    customerName: checkInEvent?.customer_name_snapshot || project?.customer_name || "",
-    projectName: checkInEvent?.project_name_snapshot || project?.project_name || "",
-    siteName: checkInEvent?.site_name_snapshot || project?.site_name || "",
-    address: checkInEvent?.project_address_snapshot || [project?.address_line_1, project?.city, project?.state, project?.postal_code].filter(Boolean).join(", "),
-    timezone: checkInEvent?.project_timezone_snapshot || project?.timezone || "UTC",
-    mapPath: checkInEvent?.project_map_path_snapshot || project?.map_image_path || null,
+    customerName: String(checkInEvent?.customer_name_snapshot || project?.customer_name || ""),
+    projectName: String(checkInEvent?.project_name_snapshot || project?.project_name || ""),
+    siteName: String(checkInEvent?.site_name_snapshot || project?.site_name || ""),
+    address: String(checkInEvent?.project_address_snapshot || [project?.address_line_1, project?.city, project?.state, project?.postal_code].filter(Boolean).join(", ")),
+    timezone: String(checkInEvent?.project_timezone_snapshot || project?.timezone || "UTC"),
+    mapPath: typeof mapPath === "string" ? mapPath : null,
+    latitude: checkInEvent?.project_latitude_snapshot ?? project?.latitude ?? null,
+    longitude: checkInEvent?.project_longitude_snapshot ?? project?.longitude ?? null,
   };
 }
 

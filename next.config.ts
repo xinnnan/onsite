@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/api/attendance/*": ["./node_modules/@expo-google-fonts/noto-sans-sc/400Regular/*.ttf"],
+    "/api/admin/reports/pdf": ["./node_modules/@expo-google-fonts/noto-sans-sc/400Regular/*.ttf"],
   },
   async headers() {
     return [{
