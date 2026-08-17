@@ -17,8 +17,8 @@ type Row = Record<string, any>;
 type ModalState = { type: "worker" | "project" | "edit-worker" | "reset" | "correction"; record?: Row } | null;
 
 const text = {
-  zh: { admin:"管理中心",dashboard:"概览",users:"人员管理",projects:"项目管理",assignments:"项目分配",attendance:"考勤记录",reports:"报告中心",audit:"审计日志",search:"搜索人员、项目或记录…",language:"English",today:"今天",addWorker:"新建人员",addProject:"新建项目",filter:"筛选",export:"导出",active:"进行中",complete:"已完成",missing:"缺少签退",currently:"当前在场",inToday:"今日签到",outToday:"今日签退",sessions:"完整工时段",exceptions:"异常记录",live:"实时",onSite:"当前现场人员",recent:"最近考勤记录",worker:"人员",project:"项目",checkIn:"签到",checkOut:"签退",hours:"工时",status:"状态",customer:"客户",site:"现场",address:"地址",map:"地图",action:"操作",company:"公司",assigned:"分配项目",edit:"编辑",reset:"重置密码",save:"保存",cancel:"取消",loading:"正在加载…",empty:"暂无记录",loadError:"加载失败，请重试",retry:"重试",projectCode:"项目编号",reportTitle:"生成客户项目报告",period:"报告期间",include:"包含照片",pdf:"生成 PDF",excel:"导出 Excel",csv:"下载 CSV",auditTitle:"管理员操作记录",reason:"修改原因",details:"查看详情",projectInfo:"项目信息",mapUpload:"项目地图截图",replace:"上传 / 替换",uploadingMap:"正在上传…",uploadMapError:"地图上传失败，请检查图片格式后重试",attendanceTitle:"考勤记录",date:"日期",view:"查看",assignedWorkers:"已分配人员",availableWorkers:"可分配人员",photos:"现场照片",total:"合计",serverTime:"服务器时间",recordId:"记录编号",snapshot:"项目快照",menu:"菜单",logout:"退出",create:"创建",password:"临时密码",displayName:"显示名称",username:"用户名",workerType:"人员类型",role:"角色",timezone:"时区",startDate:"开始日期",endDate:"结束日期",correct:"修正记录",downloaded:"文件已下载",saved:"已保存",resetDone:"密码已重置" },
-  en: { admin:"Admin center",dashboard:"Overview",users:"Workers",projects:"Projects",assignments:"Assignments",attendance:"Attendance",reports:"Reports",audit:"Audit log",search:"Search people, projects or records…",language:"中文",today:"Today",addWorker:"Add worker",addProject:"Add project",filter:"Filter",export:"Export",active:"Active",complete:"Complete",missing:"Missing checkout",currently:"Currently on site",inToday:"Checked in today",outToday:"Checked out today",sessions:"Complete sessions",exceptions:"Exceptions",live:"Live",onSite:"Currently on site",recent:"Recent attendance",worker:"Worker",project:"Project",checkIn:"Check in",checkOut:"Check out",hours:"Hours",status:"Status",customer:"Customer",site:"Site",address:"Address",map:"Map",action:"Action",company:"Company",assigned:"Assigned projects",edit:"Edit",reset:"Reset password",save:"Save",cancel:"Cancel",loading:"Loading…",empty:"No records yet",loadError:"Could not load data. Try again.",retry:"Retry",projectCode:"Project code",reportTitle:"Create customer project report",period:"Reporting period",include:"Include photos",pdf:"Create PDF",excel:"Export Excel",csv:"Download CSV",auditTitle:"Administrator activity",reason:"Reason",details:"View details",projectInfo:"Project information",mapUpload:"Project map screenshot",replace:"Upload / replace",uploadingMap:"Uploading…",uploadMapError:"Map upload failed. Check the image format and try again.",attendanceTitle:"Attendance records",date:"Date",view:"View",assignedWorkers:"Assigned workers",availableWorkers:"Available workers",photos:"Field photos",total:"Total",serverTime:"Server time",recordId:"Record ID",snapshot:"Project snapshot",menu:"Menu",logout:"Log out",create:"Create",password:"Temporary password",displayName:"Display name",username:"Username",workerType:"Worker type",role:"Role",timezone:"Timezone",startDate:"Start date",endDate:"End date",correct:"Correct record",downloaded:"File downloaded",saved:"Saved",resetDone:"Password reset" },
+  zh: { admin:"管理中心",dashboard:"概览",users:"人员管理",projects:"项目管理",assignments:"项目分配",attendance:"考勤记录",reports:"报告中心",audit:"审计日志",search:"搜索人员、项目或记录…",language:"English",today:"今天",addWorker:"新建人员",addProject:"新建项目",filter:"筛选",export:"导出",active:"进行中",complete:"已完成",missing:"缺少签退",currently:"当前在场",inToday:"今日签到",outToday:"今日签退",sessions:"完整工时段",exceptions:"异常记录",live:"实时",onSite:"当前现场人员",recent:"最近考勤记录",worker:"人员",project:"项目",checkIn:"签到",checkOut:"签退",hours:"工时",status:"状态",customer:"客户",site:"现场",address:"地址",map:"地图",action:"操作",company:"公司",assigned:"分配项目",edit:"编辑",reset:"重置密码",save:"保存",cancel:"取消",loading:"正在加载…",empty:"暂无记录",loadError:"加载失败，请重试",retry:"重试",projectCode:"项目编号",reportTitle:"生成客户项目报告",period:"报告期间",include:"PDF 包含考勤照片",pdf:"生成 PDF",excel:"导出 Excel",csv:"下载 CSV",auditTitle:"管理员操作记录",reason:"修改原因",details:"查看详情",projectInfo:"项目信息",mapUpload:"项目地图截图",replace:"上传 / 替换",uploadingMap:"正在上传…",uploadMapError:"地图上传失败，请检查图片格式后重试",attendanceTitle:"考勤记录",date:"日期",view:"查看",assignedWorkers:"已分配人员",availableWorkers:"可分配人员",photos:"现场照片",total:"合计",serverTime:"服务器时间",recordId:"记录编号",snapshot:"项目快照",menu:"菜单",logout:"退出",create:"创建",password:"临时密码",displayName:"显示名称",username:"用户名",workerType:"人员类型",role:"角色",timezone:"时区",startDate:"开始日期",endDate:"结束日期",correct:"修正记录",downloaded:"文件已下载",saved:"已保存",resetDone:"密码已重置",allPersonnel:"所有人员",runReport:"运行报告",runningReport:"正在生成预览…",reportPreview:"报告预览",reportHint:"选择项目、人员范围和报告期间，然后运行报告查看结果。",reportNotRun:"设置筛选条件后，点击“运行报告”生成预览。",reportFailed:"报告生成失败，请重试",exportOptions:"导出选项",personnelSummary:"人员汇总",dailyAttendance:"每日考勤",workSessions:"工时段",workDays:"工作日",incomplete:"未完成",noReportRows:"当前筛选条件下暂无考勤记录",reportReady:"预览已生成" },
+  en: { admin:"Admin center",dashboard:"Overview",users:"Workers",projects:"Projects",assignments:"Assignments",attendance:"Attendance",reports:"Reports",audit:"Audit log",search:"Search people, projects or records…",language:"中文",today:"Today",addWorker:"Add worker",addProject:"Add project",filter:"Filter",export:"Export",active:"Active",complete:"Complete",missing:"Missing checkout",currently:"Currently on site",inToday:"Checked in today",outToday:"Checked out today",sessions:"Complete sessions",exceptions:"Exceptions",live:"Live",onSite:"Currently on site",recent:"Recent attendance",worker:"Worker",project:"Project",checkIn:"Check in",checkOut:"Check out",hours:"Hours",status:"Status",customer:"Customer",site:"Site",address:"Address",map:"Map",action:"Action",company:"Company",assigned:"Assigned projects",edit:"Edit",reset:"Reset password",save:"Save",cancel:"Cancel",loading:"Loading…",empty:"No records yet",loadError:"Could not load data. Try again.",retry:"Retry",projectCode:"Project code",reportTitle:"Create customer project report",period:"Reporting period",include:"Include attendance photos in PDF",pdf:"Create PDF",excel:"Export Excel",csv:"Download CSV",auditTitle:"Administrator activity",reason:"Reason",details:"View details",projectInfo:"Project information",mapUpload:"Project map screenshot",replace:"Upload / replace",uploadingMap:"Uploading…",uploadMapError:"Map upload failed. Check the image format and try again.",attendanceTitle:"Attendance records",date:"Date",view:"View",assignedWorkers:"Assigned workers",availableWorkers:"Available workers",photos:"Field photos",total:"Total",serverTime:"Server time",recordId:"Record ID",snapshot:"Project snapshot",menu:"Menu",logout:"Log out",create:"Create",password:"Temporary password",displayName:"Display name",username:"Username",workerType:"Worker type",role:"Role",timezone:"Timezone",startDate:"Start date",endDate:"End date",correct:"Correct record",downloaded:"File downloaded",saved:"Saved",resetDone:"Password reset",allPersonnel:"All personnel",runReport:"Run report",runningReport:"Generating preview…",reportPreview:"Report preview",reportHint:"Select a project, personnel scope, and reporting period, then run the report to review the results.",reportNotRun:"Set the filters, then select Run report to generate a preview.",reportFailed:"Could not generate the report. Try again.",exportOptions:"Export options",personnelSummary:"Personnel summary",dailyAttendance:"Daily attendance",workSessions:"Work sessions",workDays:"Work days",incomplete:"Incomplete",noReportRows:"No attendance records match these filters",reportReady:"Preview ready" },
 } as const;
 
 const nav = [
@@ -110,7 +110,7 @@ export default function AdminShell({ view }: { view: AdminView }) {
         {view==="assignments"&&<AssignmentsView data={data} loading={loading} error={error} load={load} t={t} flash={flash}/>}
         {view==="attendance"&&<AttendanceView data={data} loading={loading} error={error} load={load} t={t} locale={locale}/>}
         {view==="attendance-detail"&&<AttendanceDetail data={data} loading={loading} error={error} load={load} t={t} locale={locale} onCorrect={(record)=>setModal({type:"correction",record})}/>}
-        {view==="reports"&&<ReportsView data={data} loading={loading} error={error} load={load} t={t} flash={flash}/>}
+        {view==="reports"&&<ReportsView data={data} loading={loading} error={error} load={load} t={t} locale={locale} flash={flash}/>}
         {view==="audit"&&<AuditView data={data} loading={loading} error={error} load={load} t={t} locale={locale}/>}
       </div></main>
     {modal&&<AdminModal modal={modal} t={t} close={()=>setModal(null)} saved={()=>{setModal(null);flash(modal.type==="reset"?t.resetDone:t.saved);load();}}/>}
@@ -172,35 +172,73 @@ function AttendanceDetail({data,loading,error,load,t,locale,onCorrect}:{data:Row
 
 function PhotoRecord({type,event,url,t,locale}:{type:string;event:Row;url?:string;t:T;locale:string}) { return <article className="admin-card photo-record">{url?<img className="attendance-photo" src={url} alt={type}/>:<div className="photo-placeholder"><div className="photo-person"><span/><i/></div></div>}<div className="photo-meta"><div><span>{type}</span><strong>{formatTime(event.server_timestamp,locale)}</strong></div><div><span>{t.recordId}</span><strong>{event.record_code||"—"}</strong></div><div><span>{t.serverTime}</span><strong>{formatDate(event.server_timestamp,locale)}</strong></div></div></article> }
 
-function ReportsView({data,loading,error,load,t,flash}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;flash:(s:string)=>void}) {
+function ReportsView({data,loading,error,load,t,locale,flash}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string;flash:(s:string)=>void}) {
   const projects=data.demo?demoProjects:(data.projects||[]);
   const users=data.demo?demoPeople:(data.users||[]);
-  const assignments=data.assignments||[];
   const [previewProjectId,setPreviewProjectId]=useState("");
   const [previewWorkerId,setPreviewWorkerId]=useState("");
+  const today=new Date().toISOString().slice(0,10);
+  const [start,setStart]=useState(`${today.slice(0,8)}01`);
+  const [end,setEnd]=useState(today);
+  const [preview,setPreview]=useState<Row|null>(null);
+  const [running,setRunning]=useState(false);
+  const [downloading,setDownloading]=useState<"pdf"|"xlsx"|"csv"|null>(null);
+  const [includePhotos,setIncludePhotos]=useState(false);
+  const [reportError,setReportError]=useState("");
   const activeProjectId=projects.some((project:Row)=>project.id===previewProjectId)?previewProjectId:(projects[0]?.id||"");
   const activeWorkerId=users.some((user:Row)=>user.id===previewWorkerId)?previewWorkerId:"";
-  const selectedProject=projects.find((project:Row)=>project.id===activeProjectId);
-  const selectedWorker=users.find((user:Row)=>user.id===activeWorkerId);
-  const assignedCompanies=assignments
-    .filter((assignment:Row)=>assignment.project_id===activeProjectId&&assignment.status==="ACTIVE")
-    .map((assignment:Row)=>one(assignment.user)?.company)
-    .filter(Boolean);
-  const companyNames=[...new Set(selectedWorker?.company?[selectedWorker.company]:(data.demo?[users[0]?.company]:assignedCompanies).filter(Boolean))];
-  const reportCompany=companyNames.join(" / ")||"—";
+  const languageLocale=locale==="zh"?"zh-CN":"en-US";
 
-  async function download(formElement:HTMLFormElement,type:"pdf"|"xlsx"|"csv"){
-    const form=new FormData(formElement);
-    const body={project_id:form.get("project_id"),worker_id:form.get("worker_id")||undefined,start:form.get("start"),end:form.get("end"),include_photos:form.get("include_photos")==="on"};
+  function clearPreview(){setPreview(null);setReportError("");}
+
+  async function runReport(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    setRunning(true);setReportError("");
+    const body={project_id:activeProjectId,worker_id:activeWorkerId||undefined,start:start||undefined,end:end||undefined};
+    try{
+      const response=await fetch("/api/admin/reports/preview",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
+      if(!response.ok)throw new Error("REPORT_FAILED");
+      setPreview(await response.json());
+    }catch{setPreview(null);setReportError(t.reportFailed)}finally{setRunning(false)}
+  }
+
+  async function download(type:"pdf"|"xlsx"|"csv"){
+    if(!preview)return;
+    setDownloading(type);setReportError("");
+    const body={...preview.filters,include_photos:type==="pdf"&&includePhotos};
     const response=await fetch(`/api/admin/reports/${type}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
-    if(!response.ok)return;
+    if(!response.ok){setReportError(t.reportFailed);setDownloading(null);return;}
     const blob=await response.blob();
     const url=URL.createObjectURL(blob);
     const link=document.createElement("a");
     link.href=url;link.download=`onsite-report.${type}`;link.click();URL.revokeObjectURL(url);flash(t.downloaded);
+    setDownloading(null);
   }
 
-  return <PageState loading={loading} error={error} empty={!projects.length} retry={load} t={t}><div className="report-layout"><form className="admin-card report-builder" onSubmit={(event)=>{event.preventDefault();download(event.currentTarget,"pdf")}}><div className="report-icon"><FileText size={24}/></div><h2>{t.reportTitle}</h2><label>{t.project}<select name="project_id" value={activeProjectId} onChange={(event)=>setPreviewProjectId(event.target.value)}>{projects.map((p:Row)=><option key={p.id} value={p.id}>{p.project_name}</option>)}</select></label><label>{t.worker}<select name="worker_id" value={activeWorkerId} onChange={(event)=>setPreviewWorkerId(event.target.value)}><option value="">—</option>{users.map((user:Row)=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label><label>{t.period}<div className="date-pair"><input name="start" type="date"/><span>—</span><input name="end" type="date"/></div></label><label className="check-label"><input name="include_photos" type="checkbox"/><span>✓</span>{t.include}</label><div className="report-actions"><button className="admin-primary" type="submit"><FileText size={16}/>{t.pdf}</button><button className="secondary-button" type="button" onClick={(event)=>event.currentTarget.form&&download(event.currentTarget.form,"xlsx")}><ArrowDownToLine size={16}/>{t.excel}</button><button className="secondary-button" type="button" onClick={(event)=>event.currentTarget.form&&download(event.currentTarget.form,"csv")}><ArrowDownToLine size={16}/>{t.csv}</button></div></form><article className="report-preview"><div className="report-paper"><header><div><strong>{reportCompany}</strong></div><p>SITE ATTENDANCE REPORT</p></header><h3>{t.project}</h3><p>{selectedProject?.project_name}</p></div></article></div></PageState>
+  return <PageState loading={loading} error={error} empty={!projects.length} retry={load} t={t}><div className="report-workspace">
+    <form className="admin-card report-builder" onSubmit={runReport}>
+      <div className="report-builder-heading"><div className="report-icon"><FileText size={24}/></div><div><h2>{t.reportTitle}</h2><p>{t.reportHint}</p></div></div>
+      <div className="report-filter-grid">
+        <label>{t.project}<select name="project_id" value={activeProjectId} onChange={(event)=>{setPreviewProjectId(event.target.value);setPreviewWorkerId("");clearPreview()}}>{projects.map((p:Row)=><option key={p.id} value={p.id}>{p.project_name}</option>)}</select></label>
+        <label>{t.worker}<select name="worker_id" value={activeWorkerId} onChange={(event)=>{setPreviewWorkerId(event.target.value);clearPreview()}}><option value="">{t.allPersonnel}</option>{users.map((user:Row)=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label>
+        <label>{t.startDate}<input name="start" type="date" value={start} max={end||undefined} onChange={(event)=>{setStart(event.target.value);clearPreview()}}/></label>
+        <label>{t.endDate}<input name="end" type="date" value={end} min={start||undefined} onChange={(event)=>{setEnd(event.target.value);clearPreview()}}/></label>
+        <button className="admin-primary run-report-button" disabled={running} type="submit">{running?<LoaderCircle className="spin" size={17}/>:<FileBarChart size={17}/>} {running?t.runningReport:t.runReport}</button>
+      </div>
+      {reportError&&<p className="report-error" role="alert">{reportError}</p>}
+    </form>
+
+    {!preview?<article className="admin-card report-empty-preview"><FileBarChart size={30}/><h2>{t.reportPreview}</h2><p>{t.reportNotRun}</p></article>:<article className="report-preview">
+      <div className="report-preview-toolbar"><div><span>{t.reportReady}</span><strong>{preview.project?.project_name}</strong></div><div className="report-export-actions"><label className="check-label"><input type="checkbox" checked={includePhotos} onChange={(event)=>setIncludePhotos(event.target.checked)}/><span>{includePhotos?"✓":""}</span>{t.include}</label><button className="admin-primary" type="button" disabled={downloading!==null} onClick={()=>download("pdf")}><FileText size={16}/>{downloading==="pdf"?t.loading:t.pdf}</button><button className="secondary-button" type="button" disabled={downloading!==null} onClick={()=>download("xlsx")}><ArrowDownToLine size={16}/>{downloading==="xlsx"?t.loading:t.excel}</button><button className="secondary-button" type="button" disabled={downloading!==null} onClick={()=>download("csv")}><ArrowDownToLine size={16}/>{downloading==="csv"?t.loading:t.csv}</button></div></div>
+      <div className="report-paper">
+        <header><div><strong>{preview.company_name||"—"}</strong><span>ONSITE SUPPORT PORTAL</span></div><p>SITE ATTENDANCE REPORT</p></header>
+        <section className="report-project"><div><span>{t.customer}</span><strong>{preview.project?.customer_name||"—"}</strong></div><div><span>{t.project}</span><strong>{preview.project?.project_name||"—"}</strong></div><div><span>{t.site}</span><strong>{preview.project?.site_name||"—"}</strong></div><div><span>{t.period}</span><strong>{preview.filters?.start||"—"} — {preview.filters?.end||"—"}</strong></div><div className="wide"><span>{t.address}</span><strong>{preview.project?.address||"—"}</strong></div></section>
+        <section><h3>{t.total}</h3><div className="report-stat-grid"><div><span>{t.worker}</span><b>{preview.summary?.total_personnel||0}</b></div><div><span>{t.workSessions}</span><b>{preview.summary?.total_work_sessions||0}</b></div><div><span>{t.hours}</span><b>{preview.summary?.total_work_hours||0}</b></div><div><span>{t.workDays}</span><b>{preview.summary?.total_work_days||0}</b></div><div><span>{t.incomplete}</span><b>{preview.summary?.incomplete_sessions||0}</b></div></div></section>
+        <section><h3>{t.personnelSummary}</h3>{preview.personnel?.length?<div className="report-table"><div className="report-table-row header"><span>{t.worker}</span><span>{t.company}</span><span>{t.workDays}</span><span>{t.hours}</span></div>{preview.personnel.map((person:Row)=><div className="report-table-row" key={`${person.name}-${person.company}`}><strong>{person.name}</strong><span>{person.company||"—"}</span><span>{person.days_on_site}</span><span>{person.hours}</span></div>)}</div>:<p className="report-no-rows">{t.noReportRows}</p>}</section>
+        <section><h3>{t.dailyAttendance}</h3>{preview.sessions?.length?<div className="report-table attendance"><div className="report-table-row header"><span>{t.date}</span><span>{t.worker}</span><span>{t.checkIn}</span><span>{t.checkOut}</span><span>{t.hours}</span><span>{t.status}</span></div>{preview.sessions.map((session:Row)=><div className="report-table-row" key={session.id}><strong>{session.date}</strong><span>{session.worker_name}</span><span>{formatTime(session.check_in,languageLocale)}</span><span>{formatTime(session.check_out,languageLocale)}</span><span>{session.hours??"—"}</span><span>{session.status}</span></div>)}</div>:<p className="report-no-rows">{t.noReportRows}</p>}</section>
+      </div>
+    </article>}
+  </div></PageState>
 }
 
 function AuditView({data,loading,error,load,t,locale}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string}) { const logs=data.logs||[];return <PageState loading={loading} error={error} empty={!logs.length} retry={load} t={t}><article className="admin-card audit-list">{logs.map((log:Row)=><div className="audit-item" key={log.id}><span className="audit-icon"><Activity size={17}/></span><div><strong>{log.action?.replaceAll("_"," ")}</strong><p>{one(log.admin)?.display_name||"Administrator"} · {log.entity_type}</p><blockquote><b>{t.reason}:</b> {log.reason}</blockquote></div><time>{formatDate(log.created_at,locale)} {formatTime(log.created_at,locale)}</time></div>)}</article></PageState> }

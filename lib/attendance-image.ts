@@ -1,10 +1,13 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { join } from "node:path";
 import sharp, { type OverlayOptions } from "sharp";
 import type { Profile, Project } from "@/lib/types";
 
 const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const WATERMARK_FONT_FILE = join(process.cwd(), "node_modules", "@expo-google-fonts", "noto-sans-sc", "400Regular", "NotoSansSC_400Regular.ttf");
+const WATERMARK_FONT_FAMILY = "Noto Sans SC";
 
 export async function normalizeSelfie(file: File) {
   if (!ALLOWED_PHOTO_TYPES.has(file.type)) throw new Error("UNSUPPORTED_PHOTO_TYPE");
@@ -49,6 +52,40 @@ function formatTimestamp(timestamp: Date, timezone: string) {
   }
 }
 
+function textOverlay({
+  text,
+  width,
+  size,
+  color,
+  top,
+  left,
+  weight = 600,
+}: {
+  text: string;
+  width: number;
+  size: number;
+  color: string;
+  top: number;
+  left: number;
+  weight?: number;
+}): OverlayOptions {
+  return {
+    input: {
+      text: {
+        text: `<span foreground="${color}" weight="${weight}">${escapeXml(text)}</span>`,
+        font: `${WATERMARK_FONT_FAMILY} ${size}`,
+        fontfile: WATERMARK_FONT_FILE,
+        width,
+        align: "left",
+        wrap: "none",
+        rgba: true,
+      },
+    },
+    top,
+    left,
+  };
+}
+
 export async function createWatermarkedPhoto({
   selfie,
   map,
@@ -79,37 +116,34 @@ export async function createWatermarkedPhoto({
   const smallSize = Math.max(15, Math.round(width * 0.012));
   const address = formatProjectAddress(project);
   const time = formatTimestamp(timestamp, project.timezone);
-
-  const svg = Buffer.from(`
-    <svg width="${textWidth}" height="${panelHeight - padding * 2}" xmlns="http://www.w3.org/2000/svg">
-      <style>
-        .brand { fill:#b7e4c7; font-family:Arial,sans-serif; font-size:${smallSize}px; font-weight:700; letter-spacing:3px; }
-        .title { fill:#ffffff; font-family:Arial,sans-serif; font-size:${titleSize}px; font-weight:800; }
-        .body { fill:#ffffff; font-family:Arial,sans-serif; font-size:${bodySize}px; font-weight:600; }
-        .muted { fill:#b7c8c2; font-family:Arial,sans-serif; font-size:${smallSize}px; }
-        .code { fill:#d9f99d; font-family:monospace; font-size:${smallSize}px; font-weight:700; }
-      </style>
-      <text x="0" y="${smallSize + 2}" class="brand">DROPLETAI SERVICES</text>
-      <text x="0" y="${smallSize + titleSize + 17}" class="title">${escapeXml(eventType === "CHECK_IN" ? "CHECK IN" : "CHECK OUT")}</text>
-      <text x="0" y="${smallSize + titleSize + bodySize + 47}" class="body">${escapeXml(profile.display_name)}</text>
-      <text x="0" y="${smallSize + titleSize + bodySize * 2 + 72}" class="body">${escapeXml(project.project_name)} · ${escapeXml(project.customer_name)}</text>
-      <text x="0" y="${smallSize + titleSize + bodySize * 3 + 96}" class="muted">${escapeXml(address)}</text>
-      <text x="0" y="${smallSize + titleSize + bodySize * 4 + 120}" class="muted">${escapeXml(time)}</text>
-      <text x="0" y="${panelHeight - padding * 2 - 3}" class="code">${escapeXml(recordCode)}</text>
-    </svg>
-  `);
+  const panelTop = photoHeight + padding;
+  const lineGap = Math.max(9, Math.round(width * 0.007));
+  let textTop = panelTop;
 
   const composite: OverlayOptions[] = [
     { input: selfie, top: 0, left: 0 },
-    { input: svg, top: photoHeight + padding, left: padding },
+    textOverlay({ text: "DROPLETAI SERVICES", width: textWidth, size: smallSize, color: "#b7e4c7", weight: 700, top: textTop, left: padding }),
   ];
+  textTop += smallSize + lineGap;
+  composite.push(textOverlay({ text: eventType === "CHECK_IN" ? "CHECK IN" : "CHECK OUT", width: textWidth, size: titleSize, color: "#ffffff", weight: 800, top: textTop, left: padding }));
+  textTop += titleSize + lineGap;
+  composite.push(textOverlay({ text: profile.display_name, width: textWidth, size: bodySize, color: "#ffffff", top: textTop, left: padding }));
+  textTop += bodySize + lineGap;
+  composite.push(textOverlay({ text: `${project.project_name} · ${project.customer_name}`, width: textWidth, size: bodySize, color: "#ffffff", top: textTop, left: padding }));
+  textTop += bodySize + lineGap;
+  composite.push(textOverlay({ text: address, width: textWidth, size: smallSize, color: "#b7c8c2", weight: 400, top: textTop, left: padding }));
+  textTop += smallSize + lineGap;
+  composite.push(textOverlay({ text: time, width: textWidth, size: smallSize, color: "#b7c8c2", weight: 400, top: textTop, left: padding }));
+  composite.push(textOverlay({ text: recordCode, width: textWidth, size: smallSize, color: "#d9f99d", weight: 700, top: photoHeight + panelHeight - padding - smallSize - 2, left: padding }));
 
   if (map) {
     const mapImage = await sharp(map).rotate().resize({ width: mapWidth, height: mapHeight, fit: "cover" }).webp({ quality: 80 }).toBuffer();
     composite.push({ input: mapImage, top: photoHeight + padding, left: width - mapWidth - padding });
   } else {
-    const placeholder = Buffer.from(`<svg width="${mapWidth}" height="${mapHeight}" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" rx="14" fill="#173f34"/><text x="50%" y="48%" text-anchor="middle" fill="#8eaaa1" font-family="Arial" font-size="${smallSize}">PROJECT MAP</text><text x="50%" y="60%" text-anchor="middle" fill="#69857d" font-family="Arial" font-size="${Math.max(12, smallSize - 2)}">Not uploaded</text></svg>`);
-    composite.push({ input: placeholder, top: photoHeight + padding, left: width - mapWidth - padding });
+    const mapLeft = width - mapWidth - padding;
+    composite.push({ input: { create: { width: mapWidth, height: mapHeight, channels: 4, background: "#173f34" } }, top: photoHeight + padding, left: mapLeft });
+    composite.push(textOverlay({ text: "PROJECT MAP", width: mapWidth, size: smallSize, color: "#8eaaa1", weight: 700, top: photoHeight + padding + Math.round(mapHeight * 0.38), left: mapLeft }));
+    composite.push(textOverlay({ text: "Not uploaded", width: mapWidth, size: Math.max(12, smallSize - 2), color: "#69857d", weight: 400, top: photoHeight + padding + Math.round(mapHeight * 0.54), left: mapLeft }));
   }
 
   return sharp({ create: { width, height: photoHeight + panelHeight, channels: 4, background: "#082b22" } })

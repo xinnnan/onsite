@@ -13,6 +13,7 @@
     "lint": "eslint . --ignore-pattern .next"
   },
   "dependencies": {
+    "@expo-google-fonts/noto-sans-sc": "^0.4.3",
     "@react-pdf/renderer": "^4.6.1",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.4",

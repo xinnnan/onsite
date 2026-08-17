@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   try {
     const { demo } = await requireAuth("ADMIN");
     const body = await request.json() as { project_id?: string; worker_id?: string; start?: string; end?: string; include_photos?: boolean };
-    const report = demo ? { sessions: [], selectedProject: null, companyName: "DropLetAI", summary: { total_personnel: 0,total_work_sessions:0,total_work_hours:0,total_work_days:0,incomplete_sessions:0 }, personnel: [] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const report = demo ? { sessions: [], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", map_image_path: null }, companyName: "DropLetAI", summary: { total_personnel: 0,total_work_sessions:0,total_work_hours:0,total_work_days:0,incomplete_sessions:0 }, personnel: [] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
     const first = report.sessions[0];
     const snapshot = first ? getSessionSnapshot(first) : null;
     const selectedProject = report.selectedProject;
