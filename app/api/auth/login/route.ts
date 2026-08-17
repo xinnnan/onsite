@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { usernameToInternalEmail } from "@/lib/auth";
-import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createSupabaseServerClient, isDemoMode, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const email = usernameToInternalEmail(body.username);
 
     if (!isSupabaseConfigured()) {
+      if (!isDemoMode()) return NextResponse.json({ error: "SUPABASE_NOT_CONFIGURED" }, { status: 503 });
       const role = body.username.toLowerCase().startsWith("admin") ? "ADMIN" : "WORKER";
       const response = NextResponse.json({ ok: true, role, demo: true });
       response.cookies.set("onsite-demo-role", role, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 8 });

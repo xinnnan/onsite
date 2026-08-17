@@ -1,0 +1,2 @@
+-- Intentionally empty. Create the first administrator through Supabase Auth,
+-- then insert the matching public.profiles row as documented in README.md.

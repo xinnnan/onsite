@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowRight, Eye, EyeOff, Languages, LockKeyhole, UserRound } from "lucide-react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/app/lib/use-language";
 
 const copy = {
@@ -39,10 +40,19 @@ const copy = {
 
 export default function Home() {
   const { locale, toggleLanguage } = useLanguage();
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const t = copy[locale];
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    if (query.has("code") || hash.get("type") === "recovery") {
+      window.location.replace(`/auth/update-password${window.location.search}${window.location.hash}`);
+    }
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +70,8 @@ export default function Home() {
       });
       const result = await response.json() as { role?: "ADMIN" | "WORKER" };
       if (!response.ok) throw new Error("LOGIN_FAILED");
-      window.location.href = `${result.role === "ADMIN" ? "/admin" : "/worker"}?lang=${locale}`;
+      router.replace(`${result.role === "ADMIN" ? "/admin" : "/worker"}?lang=${locale}`);
+      router.refresh();
     } catch {
       setError(t.loginError);
       setLoading(false);
