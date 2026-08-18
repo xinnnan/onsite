@@ -17,6 +17,18 @@ export const workerUpdateSchema = z.object({
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 }).refine((value) => Object.keys(value).length > 0, "NO_CHANGES");
 
+export const changePasswordSchema = z.object({
+  current_password: z.string().min(1).max(128),
+  new_password: z.string().min(8).max(128),
+  confirm_password: z.string().min(8).max(128),
+}).refine((value) => value.new_password === value.confirm_password, {
+  message: "PASSWORD_CONFIRMATION_MISMATCH",
+  path: ["confirm_password"],
+}).refine((value) => value.current_password !== value.new_password, {
+  message: "NEW_PASSWORD_MUST_BE_DIFFERENT",
+  path: ["new_password"],
+});
+
 const projectFields = z.object({
   project_code: z.string().trim().min(2).max(40),
   project_name: z.string().trim().min(2).max(160),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Camera, CheckCircle2, ChevronRight, Clock3, HardHat, Languages, LoaderCircle, LogOut, MapPin, ShieldCheck } from "lucide-react";
+import { Building2, Camera, CheckCircle2, ChevronRight, Clock3, HardHat, KeyRound, Languages, LoaderCircle, LogOut, MapPin, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useLanguage } from "@/app/lib/use-language";
@@ -10,8 +10,8 @@ type WorkerProject = { id: string; project_code: string; project_name: string; c
 type WorkerSummary = { profile: { display_name: string; worker_type: string; company?: string | null }; projects: WorkerProject[]; session: null | { id: string; check_in_time: string; project_id: string; project: WorkerProject }; today: Array<{ event_type: string; server_timestamp: string }>; demo?: boolean };
 
 const content = {
-  zh: { greeting: "你好", role: "现场工程师", choose: "选择今日项目", assigned: "个在建项目", selected: "已选择", status: "当前状态", idle: "尚未签到", idleHelp: "请选择项目，然后拍照签到。", checkIn: "拍照签到", checkedIn: "工作中", since: "签到时间", duration: "当前工时", checkOut: "拍照签退", locked: "工作期间项目已锁定", privacy: "时间以服务器为准", logout: "退出", switchLanguage: "English", loadError: "无法加载当前工作状态，请刷新重试。", retry: "重试", noProjects: "暂无已分配的在建项目，请联系管理员。" },
-  en: { greeting: "Hello", role: "Field Engineer", choose: "Choose today’s project", assigned: "active projects assigned", selected: "Selected", status: "Current status", idle: "Not checked in", idleHelp: "Choose a project, then take a selfie to check in.", checkIn: "Take selfie & check in", checkedIn: "Currently working", since: "Checked in", duration: "Current duration", checkOut: "Take selfie & check out", locked: "Project locked during this session", privacy: "Official time comes from the server", logout: "Log out", switchLanguage: "中文", loadError: "We could not load your current work status. Try again.", retry: "Retry", noProjects: "No active projects are assigned. Contact your administrator." },
+  zh: { greeting: "你好", role: "现场工程师", choose: "选择今日项目", assigned: "个在建项目", selected: "已选择", status: "当前状态", idle: "尚未签到", idleHelp: "请选择项目，然后拍照签到。", checkIn: "拍照签到", checkedIn: "工作中", since: "签到时间", duration: "当前工时", checkOut: "拍照签退", locked: "工作期间项目已锁定", privacy: "时间以服务器为准", logout: "退出", changePassword: "修改密码", switchLanguage: "English", loadError: "无法加载当前工作状态，请刷新重试。", retry: "重试", noProjects: "暂无已分配的在建项目，请联系管理员。" },
+  en: { greeting: "Hello", role: "Field Engineer", choose: "Choose today’s project", assigned: "active projects assigned", selected: "Selected", status: "Current status", idle: "Not checked in", idleHelp: "Choose a project, then take a selfie to check in.", checkIn: "Take selfie & check in", checkedIn: "Currently working", since: "Checked in", duration: "Current duration", checkOut: "Take selfie & check out", locked: "Project locked during this session", privacy: "Official time comes from the server", logout: "Log out", changePassword: "Change password", switchLanguage: "中文", loadError: "We could not load your current work status. Try again.", retry: "Retry", noProjects: "No active projects are assigned. Contact your administrator." },
 } as const;
 
 function WorkerDashboard() {
@@ -60,7 +60,7 @@ function WorkerDashboard() {
   async function logout() { await fetch("/api/auth/logout", { method: "POST" }); router.replace("/"); router.refresh(); }
 
   return <main className="worker-shell">
-    <header className="worker-topbar"><Link href="/worker" className="worker-logo"><span>现</span><strong>现场通 <small>OnSite</small></strong></Link><div className="worker-actions"><button type="button" onClick={toggleLanguage}><Languages size={16} />{t.switchLanguage}</button><button type="button" onClick={logout} aria-label={t.logout}><LogOut size={18} /></button></div></header>
+    <header className="worker-topbar"><Link href="/worker" className="worker-logo"><span>现</span><strong>现场通 <small>OnSite</small></strong></Link><div className="worker-actions"><Link className="worker-password-link" href="/account/password" aria-label={t.changePassword} title={t.changePassword}><KeyRound size={17} /><span>{t.changePassword}</span></Link><button type="button" onClick={toggleLanguage}><Languages size={16} />{t.switchLanguage}</button><button type="button" onClick={logout} aria-label={t.logout}><LogOut size={18} /></button></div></header>
     <section className="worker-content">
       {error ? <div className="worker-state-message"><ShieldCheck size={30} /><p>{error}</p><button onClick={load}>{t.retry}</button></div> : !summary ? <div className="worker-state-message"><LoaderCircle className="spin" size={30} /><p>Loading…</p></div> : <>
         <div className="worker-intro"><div className="worker-avatar">{initials}<span /></div><div><p className="worker-date">{dateText}</p><h1>{t.greeting}，{summary.profile.display_name}</h1><p className="worker-role"><HardHat size={15} /> {summary.profile.worker_type.replaceAll("_"," ")} · {summary.profile.company || t.role}</p></div></div>
