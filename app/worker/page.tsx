@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Building2, Camera, CheckCircle2, ChevronRight, Clock3, HardHat, KeyRound, Languages, LoaderCircle, LogOut, MapPin, ShieldCheck } from "lucide-react";
+import { Building2, Camera, CheckCircle2, ChevronRight, Clock3, HardHat, KeyRound, LoaderCircle, LogOut, MapPin, ShieldCheck } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { intlLocales, useLanguage } from "@/app/lib/use-language";
 
 type WorkerProject = { id: string; project_code: string; project_name: string; customer_name: string; site_name?: string | null; address_line_1?: string; city: string; state?: string | null; postal_code?: string | null; timezone?: string; status: string };
@@ -19,7 +20,7 @@ const content = {
 function WorkerDashboard() {
   const params = useSearchParams();
   const router = useRouter();
-  const { locale, toggleLanguage } = useLanguage();
+  const { locale, setLocale } = useLanguage();
   const t = content[locale];
   const [summary, setSummary] = useState<WorkerSummary | null>(null);
   const [selected, setSelected] = useState("");
@@ -62,7 +63,7 @@ function WorkerDashboard() {
   async function logout() { await fetch("/api/auth/logout", { method: "POST" }); router.replace("/"); router.refresh(); }
 
   return <main className="worker-shell">
-    <header className="worker-topbar"><Link href="/worker" className="worker-logo"><span>现</span><strong>现场通 <small>OnSite</small></strong></Link><div className="worker-actions"><Link className="worker-password-link" href="/account/password" aria-label={t.changePassword} title={t.changePassword}><KeyRound size={17} /><span>{t.changePassword}</span></Link><button type="button" onClick={toggleLanguage}><Languages size={16} />{t.switchLanguage}</button><button type="button" onClick={logout} aria-label={t.logout}><LogOut size={18} /></button></div></header>
+    <header className="worker-topbar"><Link href="/worker" className="worker-logo"><span>现</span><strong>现场通 <small>OnSite</small></strong></Link><div className="worker-actions"><Link className="worker-password-link" href="/account/password" aria-label={t.changePassword} title={t.changePassword}><KeyRound size={17} /><span>{t.changePassword}</span></Link><LanguageSelect locale={locale} setLocale={setLocale}/><button type="button" onClick={logout} aria-label={t.logout}><LogOut size={18} /></button></div></header>
     <section className="worker-content">
       {error ? <div className="worker-state-message"><ShieldCheck size={30} /><p>{error}</p><button onClick={load}>{t.retry}</button></div> : !summary ? <div className="worker-state-message"><LoaderCircle className="spin" size={30} /><p>{t.loading}</p></div> : <>
         <div className="worker-intro"><div className="worker-avatar">{initials}<span /></div><div><p className="worker-date">{dateText}</p><h1>{t.greeting}，{summary.profile.display_name}</h1><p className="worker-role"><HardHat size={15} /> {summary.profile.worker_type.replaceAll("_"," ")} · {summary.profile.company || t.role}</p></div></div>

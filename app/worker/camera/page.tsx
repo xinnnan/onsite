@@ -2,9 +2,10 @@
 /* eslint-disable @next/next/no-img-element -- Camera previews use a local data URL. */
 
 import Link from "next/link";
-import { ArrowLeft, Camera, Check, Languages, RefreshCcw, ShieldCheck, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Camera, Check, RefreshCcw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { useLanguage } from "@/app/lib/use-language";
 import { getWorkSummaryMetrics, isWorkSummaryValid, WORK_SUMMARY_LIMITS } from "@/lib/work-summary";
 
@@ -18,7 +19,7 @@ const copy = {
 function CameraExperience() {
   const params = useSearchParams();
   const router = useRouter();
-  const { locale, toggleLanguage } = useLanguage();
+  const { locale, setLocale } = useLanguage();
   const t = copy[locale];
   const eventType = params.get("type") === "out" ? "out" : "in";
   const project = params.get("project") || "adidas";
@@ -108,7 +109,7 @@ function CameraExperience() {
       <header className="camera-topbar">
         <Link href={eventType === "out" ? "/worker?state=working" : "/worker"} aria-label="Back"><ArrowLeft size={21} /></Link>
         <strong>现场通 <span>OnSite</span></strong>
-        <button type="button" onClick={toggleLanguage}><Languages size={16} />{t.language}</button>
+        <LanguageSelect locale={locale} setLocale={setLocale}/>
       </header>
 
       <section className="camera-content">

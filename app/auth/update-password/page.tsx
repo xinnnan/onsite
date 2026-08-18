@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Eye, EyeOff, KeyRound, Languages, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, KeyRound, ShieldAlert } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { useLanguage } from "@/app/lib/use-language";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -14,7 +15,7 @@ const copy = {
 } as const;
 
 export default function UpdatePasswordPage() {
-  const { locale, toggleLanguage } = useLanguage();
+  const { locale, setLocale } = useLanguage();
   const t = copy[locale];
   const supabase = useMemo(() => {
     try { return createSupabaseBrowserClient(); } catch { return null; }
@@ -63,7 +64,7 @@ export default function UpdatePasswordPage() {
   }
 
   return <main className="password-page"><section className="password-card">
-    <div className="recovery-language"><button type="button" onClick={toggleLanguage}><Languages size={16}/>{t.language}</button></div>
+    <div className="recovery-language"><LanguageSelect locale={locale} setLocale={setLocale}/></div>
     <div className="password-brand"><span>现</span><strong>现场通 <small>OnSite</small></strong></div>
     {complete ? <div className="password-result"><CheckCircle2 size={42} /><h1>{t.updated}</h1><p>{t.updatedHelp}</p><Link href="/">{t.back}</Link></div>
       : invalid ? <div className="password-result invalid"><ShieldAlert size={42} /><h1>{t.invalid}</h1><p>{t.invalidHelp}</p><Link href="/">{t.back}</Link></div>

@@ -5,11 +5,12 @@ import Link from "next/link";
 import {
   Activity, AlertTriangle, ArrowDownToLine, Bell, Building2, CalendarDays, CheckCircle2,
   ChevronDown, ChevronRight, ClipboardCheck, Clock3, FileBarChart, FileClock, FileText,
-  KeyRound, Languages, LayoutDashboard, LoaderCircle, LocateFixed, MapPin, Menu, MoreHorizontal, Plus,
+  KeyRound, LayoutDashboard, LoaderCircle, LocateFixed, MapPin, Menu, MoreHorizontal, Plus,
   Search, SlidersHorizontal, Upload, Users, UserRoundCheck, X,
 } from "lucide-react";
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { intlLocales, type Locale, useLanguage } from "@/app/lib/use-language";
 import { formatProjectCoordinates } from "@/lib/project-coordinates";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
@@ -70,7 +71,7 @@ function PageState({ loading, error, empty, retry, children, t }: { loading:bool
 export default function AdminShell({ view }: { view: AdminView }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { locale, toggleLanguage } = useLanguage();
+  const { locale, setLocale } = useLanguage();
   const t = text[locale];
   const [menuOpen,setMenuOpen] = useState(false);
   const [modal,setModal] = useState<ModalState>(null);
@@ -108,7 +109,7 @@ export default function AdminShell({ view }: { view: AdminView }) {
 
   return <div className="admin-shell">
     <aside className={`admin-sidebar ${menuOpen?"open":""}`}><div className="admin-brand"><span>现</span><div><strong>现场通</strong><small>ONSITE</small></div><button onClick={()=>setMenuOpen(false)}><X size={20}/></button></div><div className="admin-label">{t.admin}</div><nav>{nav.map(([key,href,Icon])=><Link key={key} href={href} className={activeNav===key?"active":""} onClick={()=>setMenuOpen(false)}><Icon size={18}/><span>{t[key]}</span>{activeNav===key&&<i/>}</Link>)}</nav><Link className="sidebar-password" href="/account/password" onClick={()=>setMenuOpen(false)}><KeyRound size={17}/><span>{t.changePassword}</span></Link><button className="sidebar-user" onClick={logout}><span>AL</span><div><strong>Administrator</strong><small>{t.logout}</small></div><MoreHorizontal size={18}/></button></aside>
-    {menuOpen&&<button className="menu-scrim" onClick={()=>setMenuOpen(false)}/>}<main className="admin-main"><header className="admin-topbar"><button className="menu-button" onClick={()=>setMenuOpen(true)}><Menu size={20}/><span>{t.menu}</span></button><div className="admin-search"><Search size={18}/><input placeholder={t.search}/></div><div className="admin-actions"><button onClick={toggleLanguage}><Languages size={16}/><span>{t.language}</span></button><button className="notification"><Bell size={18}/><i/></button></div></header>
+    {menuOpen&&<button className="menu-scrim" onClick={()=>setMenuOpen(false)}/>}<main className="admin-main"><header className="admin-topbar"><button className="menu-button" onClick={()=>setMenuOpen(true)}><Menu size={20}/><span>{t.menu}</span></button><div className="admin-search"><Search size={18}/><input placeholder={t.search}/></div><div className="admin-actions"><LanguageSelect locale={locale} setLocale={setLocale}/><button className="notification"><Bell size={18}/><i/></button></div></header>
       <div className="admin-page"><div className="page-title-row"><div><p>{t.today} · {formatDate(new Date().toISOString(),locale)}</p><h1>{t[activeNav as keyof typeof t]}</h1></div>{(view==="dashboard"||view==="users")&&<button className="admin-primary" onClick={()=>setModal({type:"worker"})}><Plus size={17}/>{t.addWorker}</button>}{view==="projects"&&<button className="admin-primary" onClick={()=>setModal({type:"project"})}><Plus size={17}/>{t.addProject}</button>}</div>
         {view==="dashboard"&&<DashboardView data={data} loading={loading} error={error} load={load} t={t} locale={locale}/>}
         {view==="users"&&<UsersView data={data} loading={loading} error={error} load={load} t={t} onEdit={(record)=>setModal({type:"edit-worker",record})} onReset={(record)=>setModal({type:"reset",record})}/>}

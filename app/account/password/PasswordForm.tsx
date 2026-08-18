@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, Languages, LoaderCircle, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, KeyRound, LoaderCircle, ShieldCheck } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { useLanguage } from "@/app/lib/use-language";
 
 const content = {
@@ -49,7 +50,7 @@ type Props = { displayName: string; role: "ADMIN" | "WORKER" };
 
 export default function PasswordForm({ displayName, role }: Props) {
   const router = useRouter();
-  const { locale, toggleLanguage } = useLanguage();
+  const { locale, setLocale } = useLanguage();
   const t = content[locale];
   const [loading, setLoading] = useState(false);
   const [complete, setComplete] = useState(false);
@@ -112,7 +113,7 @@ export default function PasswordForm({ displayName, role }: Props) {
   }
 
   return <main className="password-page account-password-page"><section className="password-card">
-    <header className="account-password-top"><Link href={home}><ArrowLeft size={17} />{t.back}</Link><button type="button" onClick={toggleLanguage}><Languages size={16} />{t.language}</button></header>
+    <header className="account-password-top"><Link href={home}><ArrowLeft size={17} />{t.back}</Link><LanguageSelect locale={locale} setLocale={setLocale}/></header>
     <div className="password-brand"><span>现</span><strong>现场通 <small>OnSite</small></strong></div>
     {complete ? <div className="password-result"><CheckCircle2 size={42} /><h1>{t.success}</h1><p>{t.successHelp}</p><LoaderCircle className="spin" size={21} /></div> : <>
       <div className="password-heading"><ShieldCheck size={24} /><p>{t.account.toUpperCase()}</p><h1>{t.title}</h1><span>{displayName} · {t.subtitle}</span></div>

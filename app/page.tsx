@@ -1,8 +1,9 @@
 "use client";
 
-import { ArrowRight, Eye, EyeOff, Languages, LockKeyhole, UserRound } from "lucide-react";
+import { ArrowRight, Eye, EyeOff, LockKeyhole, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import LanguageSelect from "@/app/components/LanguageSelect";
 import { useLanguage } from "@/app/lib/use-language";
 
 const copy = {
@@ -69,7 +70,7 @@ const copy = {
 } as const;
 
 export default function Home() {
-  const { locale, toggleLanguage } = useLanguage();
+  const { locale, setLocale } = useLanguage();
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -125,14 +126,7 @@ export default function Home() {
       </section>
 
       <section className="login-panel">
-        <button
-          className="language-switch"
-          type="button"
-          onClick={toggleLanguage}
-          aria-label={locale === "zh" ? "Switch to English" : locale === "en" ? "Cambiar a español" : locale === "es" ? "한국어로 전환" : "切换到中文"}
-        >
-          <Languages size={17} /> {t.language}
-        </button>
+        <LanguageSelect className="language-switch" locale={locale} setLocale={setLocale} />
 
         <div className="login-card">
           <div className="mobile-brand">

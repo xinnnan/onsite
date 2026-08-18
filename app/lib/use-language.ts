@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 export type Locale = "zh" | "en" | "es" | "ko";
 
-export const localeSequence: Locale[] = ["zh", "en", "es", "ko"];
+export const localeSequence: Locale[] = ["zh", "ko", "en", "es"];
 
 const htmlLocales: Record<Locale, string> = {
   zh: "zh-CN",
@@ -42,12 +42,10 @@ export function useLanguage() {
     setLocaleState(next);
     window.localStorage.setItem("onsite-language", next);
     document.documentElement.lang = htmlLocales[next];
+    const url = new URL(window.location.href);
+    url.searchParams.set("lang", next);
+    window.history.replaceState(window.history.state, "", url);
   }
 
-  function toggleLanguage() {
-    const currentIndex = localeSequence.indexOf(locale);
-    setLocale(localeSequence[(currentIndex + 1) % localeSequence.length]);
-  }
-
-  return { locale, setLocale, toggleLanguage };
+  return { locale, setLocale };
 }
