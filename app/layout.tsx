@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "zh_CN",
-    alternateLocale: "en_US",
+    alternateLocale: ["en_US", "es_ES", "ko_KR"],
     url: "/",
     siteName: "现场通 OnSite",
     title: "现场通 OnSite",

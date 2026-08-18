@@ -98,7 +98,7 @@ form > label { display: block; margin: 20px 0 9px; font-size: 13px; font-weight:
 .worker-actions { display: flex; align-items: center; gap: 9px; }
 .worker-actions button, .worker-actions a { height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid var(--line); border-radius: 10px; color: var(--green); background: white; text-decoration: none; font-size: 12px; font-weight: 750; }
 .worker-actions a { width: 36px; padding: 0; }
-.worker-actions .worker-password-link { width: auto; padding: 0 11px; }
+.worker-actions .worker-password-link { width: auto; min-width: max-content; flex-shrink: 0; padding: 0 11px; white-space: nowrap; }
 .worker-content { width: min(100% - 36px, 680px); margin: 0 auto; padding: 54px 0 38px; }
 .worker-intro { display: flex; align-items: center; gap: 17px; margin-bottom: 47px; }
 .worker-avatar { position: relative; flex: 0 0 57px; width: 57px; height: 57px; display: grid; place-items: center; border-radius: 18px; color: #285246; background: #cfe8d7; font-size: 17px; font-weight: 900; }
@@ -542,7 +542,10 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .account-password-page form { display: grid; }
 .password-help { margin: -2px 0 18px; color: var(--muted); font-size: 9px; line-height: 1.55; }
 .account-password-page .password-result .spin { animation: spin .8s linear infinite; }
-@media (max-width: 520px) {
+.recovery-language { display: flex; justify-content: flex-end; margin-bottom: 22px; }
+.recovery-language button { min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--green); background: white; font-size: 10px; font-weight: 800; }
+.recovery-language + .password-brand { margin-top: -56px; }
+@media (max-width: 680px) {
   .worker-actions .worker-password-link { width: 36px; padding: 0; }
   .worker-password-link span { display: none; }
   .password-card { padding: 23px 20px; }

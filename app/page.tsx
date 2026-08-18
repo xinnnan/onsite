@@ -31,10 +31,40 @@ const copy = {
     passwordHint: "Enter your password",
     login: "Log in",
     secure: "Secure connection",
-    language: "中文",
+    language: "Español",
     error: "Enter your username and password",
     loginError: "Login failed. Check your username and password.",
     loading: "Signing in…",
+  },
+  es: {
+    eyebrow: "ASISTENCIA EN CAMPO E INFORMES",
+    headline: "Registra tu llegada en segundos.",
+    subhead: "Registros de campo sencillos, fiables y auditables.",
+    username: "Usuario",
+    usernameHint: "Ingresa tu usuario",
+    password: "Contraseña",
+    passwordHint: "Ingresa tu contraseña",
+    login: "Iniciar sesión",
+    secure: "Conexión segura",
+    language: "한국어",
+    error: "Ingresa tu usuario y contraseña",
+    loginError: "No se pudo iniciar sesión. Revisa tus datos.",
+    loading: "Iniciando sesión…",
+  },
+  ko: {
+    eyebrow: "현장 출퇴근 및 보고",
+    headline: "몇 초 만에 현장 출근을 기록하세요.",
+    subhead: "간단하고 신뢰할 수 있으며 감사 가능한 현장 기록입니다.",
+    username: "사용자 이름",
+    usernameHint: "사용자 이름 입력",
+    password: "비밀번호",
+    passwordHint: "비밀번호 입력",
+    login: "로그인",
+    secure: "보안 연결",
+    language: "中文",
+    error: "사용자 이름과 비밀번호를 입력하세요",
+    loginError: "로그인하지 못했습니다. 계정 정보를 확인하세요.",
+    loading: "로그인 중…",
   },
 } as const;
 
@@ -99,7 +129,7 @@ export default function Home() {
           className="language-switch"
           type="button"
           onClick={toggleLanguage}
-          aria-label={locale === "zh" ? "Switch to English" : "切换到中文"}
+          aria-label={locale === "zh" ? "Switch to English" : locale === "en" ? "Cambiar a español" : locale === "es" ? "한국어로 전환" : "切换到中文"}
         >
           <Languages size={17} /> {t.language}
         </button>
@@ -111,8 +141,8 @@ export default function Home() {
           </div>
           <div className="login-heading">
             <p className="eyebrow">{t.eyebrow}</p>
-            <h2>{locale === "zh" ? "欢迎回来" : "Welcome back"}</h2>
-            <p>{locale === "zh" ? "使用管理员分配的账号登录" : "Use the account assigned by your administrator"}</p>
+            <h2>{locale === "zh" ? "欢迎回来" : locale === "en" ? "Welcome back" : locale === "es" ? "Bienvenido de nuevo" : "다시 오신 것을 환영합니다"}</h2>
+            <p>{locale === "zh" ? "使用管理员分配的账号登录" : locale === "en" ? "Use the account assigned by your administrator" : locale === "es" ? "Usa la cuenta asignada por tu administrador" : "관리자가 할당한 계정으로 로그인하세요"}</p>
           </div>
 
           <form onSubmit={submit} noValidate>

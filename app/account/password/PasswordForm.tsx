@@ -19,11 +19,29 @@ const content = {
   en: {
     account: "Account security", title: "Change login password", subtitle: "Verify your current password before setting a new one.",
     current: "Current password", next: "New password", confirm: "Confirm new password", hint: "Use at least 8 characters and choose a password different from your current one.",
-    submit: "Update password", updating: "Updating…", back: "Back", language: "中文",
+    submit: "Update password", updating: "Updating…", back: "Back", language: "Español",
     success: "Password updated", successHelp: "You have been signed out securely. Returning to login…",
     invalidCurrent: "The current password is incorrect.", mismatch: "The new passwords do not match.",
     samePassword: "The new password must be different from the current password.", invalid: "Complete all fields and use at least 8 characters.",
     failed: "We could not update your password. Try again.",
+  },
+  es: {
+    account: "Seguridad de la cuenta", title: "Cambiar contraseña", subtitle: "Verifica tu contraseña actual antes de crear una nueva.",
+    current: "Contraseña actual", next: "Nueva contraseña", confirm: "Confirmar nueva contraseña", hint: "Usa al menos 8 caracteres y una contraseña diferente de la actual.",
+    submit: "Actualizar contraseña", updating: "Actualizando…", back: "Volver", language: "한국어",
+    success: "Contraseña actualizada", successHelp: "La sesión se cerró de forma segura. Volviendo al inicio de sesión…",
+    invalidCurrent: "La contraseña actual es incorrecta.", mismatch: "Las nuevas contraseñas no coinciden.",
+    samePassword: "La nueva contraseña debe ser diferente de la actual.", invalid: "Completa todos los campos y usa al menos 8 caracteres.",
+    failed: "No pudimos actualizar la contraseña. Inténtalo de nuevo.",
+  },
+  ko: {
+    account: "계정 보안", title: "로그인 비밀번호 변경", subtitle: "새 비밀번호를 설정하기 전에 현재 비밀번호를 확인합니다.",
+    current: "현재 비밀번호", next: "새 비밀번호", confirm: "새 비밀번호 확인", hint: "8자 이상이며 현재 비밀번호와 다른 비밀번호를 사용하세요.",
+    submit: "비밀번호 변경", updating: "변경 중…", back: "돌아가기", language: "中文",
+    success: "비밀번호가 변경되었습니다", successHelp: "안전하게 로그아웃했습니다. 로그인 화면으로 이동 중…",
+    invalidCurrent: "현재 비밀번호가 올바르지 않습니다.", mismatch: "새 비밀번호가 일치하지 않습니다.",
+    samePassword: "새 비밀번호는 현재 비밀번호와 달라야 합니다.", invalid: "모든 항목을 입력하고 8자 이상을 사용하세요.",
+    failed: "비밀번호를 변경하지 못했습니다. 다시 시도하세요.",
   },
 } as const;
 

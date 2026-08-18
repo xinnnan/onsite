@@ -2,7 +2,27 @@
 
 import { useEffect, useState } from "react";
 
-export type Locale = "zh" | "en";
+export type Locale = "zh" | "en" | "es" | "ko";
+
+export const localeSequence: Locale[] = ["zh", "en", "es", "ko"];
+
+const htmlLocales: Record<Locale, string> = {
+  zh: "zh-CN",
+  en: "en",
+  es: "es",
+  ko: "ko",
+};
+
+export const intlLocales: Record<Locale, string> = {
+  zh: "zh-CN",
+  en: "en-US",
+  es: "es-ES",
+  ko: "ko-KR",
+};
+
+function isLocale(value: string | null): value is Locale {
+  return localeSequence.includes(value as Locale);
+}
 
 export function useLanguage() {
   const [locale, setLocaleState] = useState<Locale>("zh");
@@ -11,18 +31,23 @@ export function useLanguage() {
     const params = new URLSearchParams(window.location.search);
     const requested = params.get("lang");
     const saved = window.localStorage.getItem("onsite-language");
-    const next = requested === "en" || requested === "zh" ? requested : saved === "en" || saved === "zh" ? saved : "zh";
+    const next = isLocale(requested) ? requested : isLocale(saved) ? saved : "zh";
     const timer = window.setTimeout(() => setLocaleState(next), 0);
     window.localStorage.setItem("onsite-language", next);
-    document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
+    document.documentElement.lang = htmlLocales[next];
     return () => window.clearTimeout(timer);
   }, []);
 
   function setLocale(next: Locale) {
     setLocaleState(next);
     window.localStorage.setItem("onsite-language", next);
-    document.documentElement.lang = next === "zh" ? "zh-CN" : "en";
+    document.documentElement.lang = htmlLocales[next];
   }
 
-  return { locale, setLocale, toggleLanguage: () => setLocale(locale === "zh" ? "en" : "zh") };
+  function toggleLanguage() {
+    const currentIndex = localeSequence.indexOf(locale);
+    setLocale(localeSequence[(currentIndex + 1) % localeSequence.length]);
+  }
+
+  return { locale, setLocale, toggleLanguage };
 }

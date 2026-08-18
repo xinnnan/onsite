@@ -4,11 +4,13 @@ import Link from "next/link";
 import { Check, Clock3, MapPin, ShieldCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { useLanguage } from "@/app/lib/use-language";
+import { intlLocales, useLanguage } from "@/app/lib/use-language";
 
 const copy = {
   zh: { inTitle: "签到成功", outTitle: "签退成功", inSub: "今天的工作时段已经开始", outSub: "今天的工作时段已完成", project: "项目", official: "服务器时间", record: "记录编号", back: "返回首页", secure: "照片与项目快照已安全保存", total: "本次工时" },
   en: { inTitle: "Check-in complete", outTitle: "Check-out complete", inSub: "Your work session has started", outSub: "Your work session is complete", project: "Project", official: "Server time", record: "Record ID", back: "Back to home", secure: "Photo and project snapshot saved securely", total: "Session duration" },
+  es: { inTitle: "Entrada registrada", outTitle: "Salida registrada", inSub: "Tu jornada de trabajo ha comenzado", outSub: "Tu jornada de trabajo ha finalizado", project: "Proyecto", official: "Hora del servidor", record: "ID del registro", back: "Volver al inicio", secure: "Foto y datos del proyecto guardados de forma segura", total: "Duración de la sesión" },
+  ko: { inTitle: "출근 기록 완료", outTitle: "퇴근 기록 완료", inSub: "근무 세션이 시작되었습니다", outSub: "근무 세션이 완료되었습니다", project: "프로젝트", official: "서버 시간", record: "기록 ID", back: "홈으로 돌아가기", secure: "사진과 프로젝트 정보가 안전하게 저장되었습니다", total: "이번 근무 시간" },
 } as const;
 
 function SuccessContent() {
@@ -20,7 +22,7 @@ function SuccessContent() {
   const timestamp = params.get("time") ? new Date(params.get("time")!) : new Date();
   const duration = Number(params.get("duration") || 0);
   const projectName = params.get("project_name") || (params.get("project") === "walmart" ? "Walmart Atlanta" : "Selected project");
-  const timeText = new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", { hour: "2-digit", minute: "2-digit", timeZoneName: "short" }).format(timestamp);
+  const timeText = new Intl.DateTimeFormat(intlLocales[locale], { hour: "2-digit", minute: "2-digit", timeZoneName: "short" }).format(timestamp);
 
   return (
     <main className="success-page">
