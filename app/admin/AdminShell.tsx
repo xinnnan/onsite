@@ -48,12 +48,41 @@ const demoSessions = [
 
 type T = (typeof text)[keyof typeof text];
 
+const dashboardText = {
+  zh: { todayAttendance:"今日考勤记录", attendanceRecords:"考勤记录", chooseDate:"选择考勤日期", noPeople:"暂无人员", noAttendance:"当天暂无考勤记录", morePeople:(count:number)=>`另有 ${count} 人` },
+  en: { todayAttendance:"Today's attendance", attendanceRecords:"Attendance records", chooseDate:"Select attendance date", noPeople:"No personnel", noAttendance:"No attendance records for this date", morePeople:(count:number)=>`${count} more` },
+  es: { todayAttendance:"Asistencia de hoy", attendanceRecords:"Registros de asistencia", chooseDate:"Seleccionar fecha de asistencia", noPeople:"Sin personal", noAttendance:"No hay registros de asistencia para esta fecha", morePeople:(count:number)=>`${count} más` },
+  ko: { todayAttendance:"오늘의 근태 기록", attendanceRecords:"근태 기록", chooseDate:"근태 날짜 선택", noPeople:"해당 인력 없음", noAttendance:"선택한 날짜에 근태 기록이 없습니다", morePeople:(count:number)=>`${count}명 더 있음` },
+} as const;
+
 function one(value: any) { return Array.isArray(value) ? value[0] : value; }
 function initials(name = "") { return name.split(/\s+/).map((part) => part[0]).join("").slice(0,2).toUpperCase() || "—"; }
 function resolveIntlLocale(locale: string) { return locale in intlLocales ? intlLocales[locale as Locale] : locale; }
 function formatDate(value?: string, locale = "en-US") { return value ? new Intl.DateTimeFormat(resolveIntlLocale(locale),{month:"short",day:"2-digit",year:"numeric"}).format(new Date(value)) : "—"; }
 function formatTime(value?: string, locale = "en-US") { return value ? new Intl.DateTimeFormat(resolveIntlLocale(locale),{hour:"2-digit",minute:"2-digit"}).format(new Date(value)) : "—"; }
 function formatHours(seconds?: number | null) { return seconds == null ? "—" : (seconds / 3600).toFixed(2); }
+function localDateValue(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2,"0");
+  const day = String(date.getDate()).padStart(2,"0");
+  return `${year}-${month}-${day}`;
+}
+function localDateRange(dateValue: string) {
+  const [year,month,day] = dateValue.split("-").map(Number);
+  return { start:new Date(year,month - 1,day), end:new Date(year,month - 1,day + 1) };
+}
+function dashboardEndpoint(dateValue = localDateValue()) {
+  const selected = localDateRange(dateValue);
+  const today = localDateRange(localDateValue());
+  const params = new URLSearchParams({
+    date:dateValue,
+    start:selected.start.toISOString(),
+    end:selected.end.toISOString(),
+    today_start:today.start.toISOString(),
+    today_end:today.end.toISOString(),
+  });
+  return `/api/admin/dashboard?${params.toString()}`;
+}
 
 function StatusBadge({ status, t }: { status: string; t: T }) {
   const normalized = status.toLowerCase();
@@ -79,6 +108,7 @@ export default function AdminShell({ view }: { view: AdminView }) {
   const [loading,setLoading] = useState(true);
   const [error,setError] = useState("");
   const [notice,setNotice] = useState("");
+  const loadErrorRef = useRef(t.loadError);
   const id = pathname.split("/").filter(Boolean).at(-1) || "";
   const activeNav = view === "project-detail" ? "projects" : view === "attendance-detail" ? "attendance" : view;
 
@@ -101,9 +131,10 @@ export default function AdminShell({ view }: { view: AdminView }) {
       if (!response.ok) throw new Error("LOAD_FAILED");
       const payload = await response.json();
       setData(payload);
-    } catch { setError(t.loadError); } finally { setLoading(false); }
-  },[endpoint,router,t.loadError]);
-  useEffect(()=>{const timer=window.setTimeout(()=>{void load()},0);return()=>window.clearTimeout(timer)},[load]);
+    } catch { setError(loadErrorRef.current); } finally { setLoading(false); }
+  },[endpoint,router]);
+  useEffect(()=>{loadErrorRef.current=t.loadError},[t.loadError]);
+  useEffect(()=>{const timer=window.setTimeout(()=>{void load(view==="dashboard"?dashboardEndpoint():undefined)},0);return()=>window.clearTimeout(timer)},[load,view]);
   function flash(message:string){setNotice(message);window.setTimeout(()=>setNotice(""),2200);}
   async function logout(){await fetch("/api/auth/logout",{method:"POST"});router.replace("/");router.refresh();}
 
@@ -126,14 +157,33 @@ export default function AdminShell({ view }: { view: AdminView }) {
   </div>;
 }
 
-function DashboardView({data,loading,error,load,t,locale}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string}) {
-  const stats=data.stats||{}; const onSite=data.demo?demoSessions.filter((row)=>row.status==="OPEN"):(data.on_site||[]); const recent=data.demo?demoSessions:(data.recent||[]);
-  const dailyHours=data.demo?[63,78,54,88,96,34,70]:(data.daily_hours||[]).map((row:Row)=>Number(row.hours||0));const maxHours=Math.max(...dailyHours,1);
-  const cards=[[t.currently,stats.currently_on_site??onSite.length,Users,"green"],[t.inToday,stats.checked_in_today??(data.demo?2:0),UserRoundCheck,"blue"],[t.outToday,stats.checked_out_today??(data.demo?1:0),Clock3,"sand"],[t.sessions,stats.complete_sessions??(data.demo?1:0),CheckCircle2,"purple"],[t.missing,stats.missing_checkout??0,FileClock,"sand"],[t.exceptions,stats.exceptions??0,AlertTriangle,"red"]] as const;
-  return <PageState loading={loading} error={error} empty={false} retry={load} t={t}><section className="welcome-strip"><div><p>{t.onSite}</p><h2>{t.live}</h2></div><span><i/>{t.live}</span></section><section className="stat-grid">{cards.map(([label,value,Icon,tone])=><article className="stat-card" key={label}><div className={`stat-icon ${tone}`}><Icon size={19}/></div><span>{label}</span><strong>{value}</strong></article>)}</section><section className="dashboard-grid"><article className="admin-card chart-card"><div className="card-heading"><div><p>{t.hours}</p><span>7 days</span></div><button><CalendarDays size={15}/><ChevronDown size={14}/></button></div><div className="bar-chart"><div className="axis"><span>{maxHours.toFixed(0)}</span><span>{(maxHours/2).toFixed(0)}</span><span>0</span></div>{dailyHours.map((hours:number,index:number)=><div className="bar-column" key={index}><div title={`${hours.toFixed(2)} h`}><i style={{height:`${Math.max(hours?5:0,(hours/maxHours)*100)}%`}}/></div><span>{data.demo?["M","T","W","T","F","S","S"][index]:String(data.daily_hours?.[index]?.day||"").slice(5)}</span></div>)}</div></article><article className="admin-card onsite-card"><div className="card-heading"><div><p>{t.onSite}</p><span>{onSite.length}</span></div></div><div className="onsite-list">{onSite.slice(0,3).map((row:Row)=>{const worker=one(row.worker)||{};const project=one(row.project)||{};return <div key={row.id}><span className="person-avatar green">{initials(worker.display_name)}<i/></span><div><strong>{worker.display_name}</strong><small>{project.project_name}</small></div><time>{formatTime(row.check_in_time,locale)}</time></div>})}</div></article></section><SessionTable sessions={recent} t={t} locale={locale}/></PageState>;
+function DashboardView({data,loading,error,load,t,locale}:{data:Row;loading:boolean;error:string;load:(endpoint?:string)=>void;t:T;locale:string}) {
+  const copy=dashboardText[locale as Locale]||dashboardText.en;
+  const stats=data.stats||{};
+  const onSite=data.demo?demoSessions.filter((row)=>row.status==="OPEN"):(data.on_site||[]);
+  const selectedDate=String(data.selected_date||localDateValue());
+  const today=localDateValue();
+  const recent=data.demo?demoSessions.filter((row)=>localDateValue(new Date(row.check_in_time))===selectedDate):(data.recent||[]);
+  const demoStatPeople=demoSessions.map((row)=>{const worker=one(row.worker)||{};const project=one(row.project)||{};return {id:worker.id,display_name:worker.display_name,company:worker.company,project_name:project.project_name}});
+  const statPeople=data.demo?{
+    currently_on_site:demoStatPeople.slice(1),checked_in_today:demoStatPeople,checked_out_today:demoStatPeople.slice(0,1),complete_sessions:demoStatPeople.slice(0,1),missing_checkout:[],exceptions:[],
+  }:(data.stat_people||{});
+  const dailyHours=data.demo?[63,78,54,88,96,34,70]:(data.daily_hours||[]).map((row:Row)=>Number(row.hours||0));
+  const maxHours=Math.max(...dailyHours,1);
+  const cards=[
+    [t.currently,stats.currently_on_site??onSite.length,Users,"green",statPeople.currently_on_site||[]],
+    [t.inToday,stats.checked_in_today??(data.demo?2:0),UserRoundCheck,"blue",statPeople.checked_in_today||[]],
+    [t.outToday,stats.checked_out_today??(data.demo?1:0),Clock3,"sand",statPeople.checked_out_today||[]],
+    [t.sessions,stats.complete_sessions??(data.demo?1:0),CheckCircle2,"purple",statPeople.complete_sessions||[]],
+    [t.missing,stats.missing_checkout??0,FileClock,"sand",statPeople.missing_checkout||[]],
+    [t.exceptions,stats.exceptions??0,AlertTriangle,"red",statPeople.exceptions||[]],
+  ] as [string,number,typeof Users,string,Row[]][];
+  const tableTitle=selectedDate===today?copy.todayAttendance:`${formatDate(`${selectedDate}T12:00:00`,locale)} · ${copy.attendanceRecords}`;
+  const reload=()=>load(dashboardEndpoint(selectedDate));
+  return <PageState loading={loading} error={error} empty={false} retry={reload} t={t}><section className="welcome-strip"><div><p>{t.onSite}</p><h2>{t.live}</h2></div><span><i/>{t.live}</span></section><section className="stat-grid">{cards.map(([label,value,Icon,tone,people])=><article className="stat-card" key={label} title={people.map((person)=>[person.display_name,person.project_name].filter(Boolean).join(" · ")).join("\n")}><div className={`stat-icon ${tone}`}><Icon size={19}/></div><span>{label}</span><strong>{value}</strong><div className="stat-people">{people.slice(0,2).map((person)=><span key={person.id||person.display_name}><i>{initials(person.display_name)}</i><b>{person.display_name}</b></span>)}{people.length===0&&<em>{copy.noPeople}</em>}{people.length>2&&<small>{copy.morePeople(people.length-2)}</small>}</div></article>)}</section><section className="dashboard-grid"><article className="admin-card chart-card"><div className="card-heading"><div><p>{t.hours}</p><span>7 days</span></div><button><CalendarDays size={15}/><ChevronDown size={14}/></button></div><div className="bar-chart"><div className="axis"><span>{maxHours.toFixed(0)}</span><span>{(maxHours/2).toFixed(0)}</span><span>0</span></div>{dailyHours.map((hours:number,index:number)=><div className="bar-column" key={index}><div title={`${hours.toFixed(2)} h`}><i style={{height:`${Math.max(hours?5:0,(hours/maxHours)*100)}%`}}/></div><span>{data.demo?["M","T","W","T","F","S","S"][index]:String(data.daily_hours?.[index]?.day||"").slice(5)}</span></div>)}</div></article><article className="admin-card onsite-card"><div className="card-heading"><div><p>{t.onSite}</p><span>{onSite.length}</span></div></div><div className="onsite-list">{onSite.slice(0,3).map((row:Row)=>{const worker=one(row.worker)||{};const project=one(row.project)||{};return <div key={row.id}><span className="person-avatar green">{initials(worker.display_name)}<i/></span><div><strong>{worker.display_name}</strong><small>{project.project_name}</small></div><time>{formatTime(row.check_in_time,locale)}</time></div>})}{onSite.length>3&&<p className="onsite-more">{copy.morePeople(onSite.length-3)}</p>}</div></article></section><SessionTable sessions={recent} t={t} locale={locale} title={tableTitle} date={selectedDate} maxDate={today} chooseDate={copy.chooseDate} emptyLabel={copy.noAttendance} onDateChange={(date)=>load(dashboardEndpoint(date))}/></PageState>;
 }
 
-function SessionTable({sessions,t,locale}:{sessions:Row[];t:T;locale:string}) { return <article className="admin-card table-card"><div className="card-heading"><div><p>{t.recent}</p><span>{sessions.length}</span></div></div><div className="table-scroll"><table><thead><tr><th>{t.date}</th><th>{t.worker}</th><th>{t.project}</th><th>{t.checkIn}</th><th>{t.checkOut}</th><th>{t.hours}</th><th>{t.status}</th><th/></tr></thead><tbody>{sessions.map((row)=>{const worker=one(row.worker)||{};const project=one(row.project)||{};return <tr key={row.id}><td>{formatDate(row.check_in_time,locale)}</td><td><strong>{worker.display_name||"—"}</strong></td><td>{project.project_name||"—"}</td><td className="mono">{formatTime(row.check_in_time,locale)}</td><td className="mono">{formatTime(row.check_out_time,locale)}</td><td className="mono">{formatHours(row.duration_seconds)}</td><td><StatusBadge status={row.status} t={t}/></td><td><Link href={`/admin/attendance/${row.id}`}><ChevronRight size={17}/></Link></td></tr>})}</tbody></table></div></article> }
+function SessionTable({sessions,t,locale,title,date,maxDate,chooseDate,emptyLabel,onDateChange}:{sessions:Row[];t:T;locale:string;title?:string;date?:string;maxDate?:string;chooseDate?:string;emptyLabel?:string;onDateChange?:(date:string)=>void}) { return <article className="admin-card table-card"><div className="card-heading attendance-day-heading"><div><p>{title||t.recent}</p><span>{sessions.length}</span></div>{date&&onDateChange&&<label className="attendance-date-picker"><CalendarDays size={15}/><span className="sr-only">{chooseDate}</span><input type="date" value={date} max={maxDate} aria-label={chooseDate} onChange={(event)=>{if(event.target.value)onDateChange(event.target.value)}}/></label>}</div>{sessions.length>0?<div className="table-scroll"><table><thead><tr><th>{t.date}</th><th>{t.worker}</th><th>{t.project}</th><th>{t.checkIn}</th><th>{t.checkOut}</th><th>{t.hours}</th><th>{t.status}</th><th/></tr></thead><tbody>{sessions.map((row)=>{const worker=one(row.worker)||{};const project=one(row.project)||{};return <tr key={row.id}><td>{formatDate(row.check_in_time,locale)}</td><td><strong>{worker.display_name||"—"}</strong></td><td>{project.project_name||"—"}</td><td className="mono">{formatTime(row.check_in_time,locale)}</td><td className="mono">{formatTime(row.check_out_time,locale)}</td><td className="mono">{formatHours(row.duration_seconds)}</td><td><StatusBadge status={row.status} t={t}/></td><td><Link href={`/admin/attendance/${row.id}`}><ChevronRight size={17}/></Link></td></tr>})}</tbody></table></div>:<div className="daily-attendance-empty"><CalendarDays size={21}/><p>{emptyLabel||t.empty}</p></div>}</article> }
 
 function UsersView({data,loading,error,load,t,onEdit,onReset}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;onEdit:(r:Row)=>void;onReset:(r:Row)=>void}) { const users=data.demo?demoPeople:(data.users||[]); return <PageState loading={loading} error={error} empty={!users.length} retry={load} t={t}><div className="toolbar"><div className="toolbar-search"><Search size={16}/><input placeholder={t.search}/></div><button><SlidersHorizontal size={15}/>{t.filter}</button></div><article className="admin-card table-card"><div className="table-scroll"><table><thead><tr><th>{t.worker}</th><th>{t.company}</th><th>{t.workerType}</th><th>{t.role}</th><th>{t.status}</th><th>{t.action}</th></tr></thead><tbody>{users.map((user:Row)=><tr key={user.id}><td><div className="person-cell"><span className="person-avatar green">{initials(user.display_name)}<i/></span><div><strong>{user.display_name}</strong><small>{user.username}</small></div></div></td><td>{user.company||"—"}</td><td>{user.worker_type?.replaceAll("_"," ")}</td><td>{user.role}</td><td><StatusBadge status={user.status} t={t}/></td><td><div className="table-actions"><button onClick={()=>onEdit(user)}>{t.edit}</button><button onClick={()=>onReset(user)}>{t.reset}</button></div></td></tr>)}</tbody></table></div></article></PageState> }
 

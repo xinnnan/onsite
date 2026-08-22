@@ -299,13 +299,19 @@ form > label { display: block; margin: 20px 0 9px; font-size: 13px; font-weight:
 .welcome-strip > span { display: flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.14); border-radius: 999px; background: rgba(255,255,255,.08); font-size: 9px; font-weight: 800; }
 .welcome-strip i { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 5px rgba(217,249,157,.1); }
 .stat-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
-.stat-card { position: relative; min-height: 126px; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-content: space-between; gap: 3px 12px; padding: 16px; border: 1px solid #e0e7e3; border-radius: 14px; background: white; }
+.stat-card { position: relative; min-width: 0; min-height: 174px; display: grid; grid-template-columns: auto minmax(0,1fr); grid-template-rows: auto auto auto 1fr; align-content: start; gap: 3px 12px; padding: 16px; border: 1px solid #e0e7e3; border-radius: 14px; background: white; }
 .stat-icon { grid-row: 1 / span 2; width: 37px; height: 37px; display: grid; place-items: center; border-radius: 11px; color: var(--green); background: #dfeee4; }
 .stat-icon.blue { color: #35698d; background: #e1edf5; }.stat-icon.sand { color: #896b2d; background: #f4ead2; }.stat-icon.purple { color: #745b91; background: #eee7f3; }.stat-icon.red { color: #a54f40; background: #f4e2de; }
-.stat-card > span { align-self: center; color: var(--muted); font-size: 9px; font-weight: 700; }
-.stat-card > strong { position: absolute; left: 16px; bottom: 15px; font: 750 29px/1 var(--font-geist-mono), monospace; letter-spacing: -.05em; }
+.stat-card > span { grid-column: 2; grid-row: 1 / span 2; align-self: center; color: var(--muted); font-size: 9px; font-weight: 700; }
+.stat-card > strong { grid-column: 1 / -1; grid-row: 3; margin-top: 9px; font: 750 29px/1 var(--font-geist-mono), monospace; letter-spacing: -.05em; }
 .stat-card > small { position: absolute; right: 15px; bottom: 17px; color: #3a9262; font-size: 8px; font-weight: 750; }
 .stat-card > small.danger { color: #b34d3b; }
+.stat-people { grid-column: 1 / -1; grid-row: 4; align-self: end; min-width: 0; display: grid; gap: 4px; margin-top: 10px; }
+.stat-people > span { min-width: 0; display: flex; align-items: center; gap: 6px; color: #52625d; }
+.stat-people i { flex: 0 0 18px; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 6px; color: var(--green); background: #edf4f0; font-size: 6px; font-style: normal; font-weight: 850; }
+.stat-people b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 8px; font-weight: 750; }
+.stat-people em, .stat-people small { overflow: hidden; color: #9aa7a3; font-size: 7px; font-style: normal; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.stat-people small { color: var(--green); font-weight: 800; }
 .dashboard-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 13px; margin-top: 13px; }
 .admin-card { border: 1px solid #e0e7e3; border-radius: 14px; background: white; }
 .chart-card, .onsite-card { min-height: 290px; padding: 19px; }
@@ -327,8 +333,15 @@ form > label { display: block; margin: 20px 0 9px; font-size: 13px; font-weight:
 .person-avatar i { position: absolute; right: -1px; bottom: 0; width: 8px; height: 8px; border: 2px solid white; border-radius: 50%; background: #3ba268; }
 .onsite-list > div > div { flex: 1; display: grid; gap: 4px; }
 .onsite-list strong { font-size: 10px; }.onsite-list small { color: var(--muted); font-size: 8px; }.onsite-list time { color: var(--green); font: 700 9px/1 var(--font-geist-mono), monospace; }
+.onsite-list .onsite-more { margin: 9px 0 0; color: var(--green); font-size: 8px; font-weight: 800; }
 .table-card { margin-top: 13px; overflow: hidden; }
 .table-card > .card-heading { padding: 18px 19px 13px; }
+.attendance-day-heading { align-items: center; }
+.attendance-date-picker { min-height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--green); background: white; }
+.attendance-date-picker input { width: 119px; border: 0; outline: 0; color: var(--ink); background: transparent; font: 750 9px/1 var(--font-geist-mono), monospace; cursor: pointer; }
+.daily-attendance-empty { min-height: 126px; display: grid; place-items: center; align-content: center; gap: 9px; border-top: 1px solid #edf0ee; color: #9aa7a3; }
+.daily-attendance-empty p { margin: 0; font-size: 9px; font-weight: 700; }
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 .table-scroll { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; white-space: nowrap; }
 th { height: 37px; padding: 0 15px; border-top: 1px solid #edf0ee; border-bottom: 1px solid #e5eae7; color: #8b9995; background: #fafbfa; text-align: left; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
@@ -475,7 +488,7 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 
 @media (max-width: 1100px) {
   .stat-grid { grid-template-columns: repeat(3, 1fr); }
-  .stat-card:nth-child(n+4) { min-height: 105px; }
+  .stat-card:nth-child(n+4) { min-height: 174px; }
   .detail-layout { grid-template-columns: 1fr; }
   .report-filter-grid { grid-template-columns: 1fr 1fr; }
   .run-report-button { grid-column: 1 / -1; }
@@ -510,7 +523,8 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
   .welcome-strip { padding: 17px; }
   .welcome-strip h2 { max-width: 220px; font-size: 12px; }
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat-card { min-height: 112px; }
+  .stat-card { min-height: 174px; }
+  .attendance-day-heading { align-items: flex-start; flex-direction: column; }
   .form-grid { grid-template-columns: 1fr; }.form-grid label.wide { grid-column: auto; }
   .filter-grid { grid-template-columns: 1fr 1fr; }.filter-grid button { grid-column: span 2; justify-content: center; }
   .record-hero { grid-template-columns: 1fr; }.record-footer { grid-template-columns: 1fr; }.photo-meta { grid-template-columns: 1fr; gap: 12px; }
