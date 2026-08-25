@@ -1,6 +1,7 @@
 import "server-only";
 import sharp from "sharp";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
 
 type PrivateAssetBucket = "project-assets" | "attendance-originals" | "attendance-watermarked";
 
@@ -25,15 +26,19 @@ export async function fetchAttendanceSessions(filters: AttendanceFilters = {}) {
   `).order("check_in_time", { ascending: false }).limit(1000);
   if (filters.projectId) query = query.eq("project_id", filters.projectId);
   if (filters.workerId) query = query.eq("user_id", filters.workerId);
-  if (filters.start) query = query.gte("check_in_time", `${filters.start}T00:00:00.000Z`);
-  if (filters.end) query = query.lte("check_in_time", `${filters.end}T23:59:59.999Z`);
+  if (filters.start) query = query.gte("check_in_time", new Date(Date.parse(`${filters.start}T00:00:00.000Z`) - 14 * 60 * 60 * 1000).toISOString());
+  if (filters.end) query = query.lte("check_in_time", new Date(Date.parse(`${filters.end}T23:59:59.999Z`) + 12 * 60 * 60 * 1000).toISOString());
   if (filters.status) query = query.eq("status", filters.status);
   const { data, error } = await query;
   if (error) throw error;
   return (data || []).filter((row) => {
     const project = Array.isArray(row.project) ? row.project[0] : row.project;
     const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
-    return (!filters.customer || project?.customer_name === filters.customer) && (!filters.company || worker?.company === filters.company);
+    const localDay = localDateKey(row.check_in_time, getSessionTimeZone(row));
+    return (!filters.customer || project?.customer_name === filters.customer)
+      && (!filters.company || worker?.company === filters.company)
+      && (!filters.start || localDay >= filters.start)
+      && (!filters.end || localDay <= filters.end);
   });
 }
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
 
 type DashboardRow = Record<string, unknown>;
 
@@ -71,10 +72,10 @@ export async function GET(request: NextRequest) {
     weekStart.setUTCDate(weekStart.getUTCDate() - 6);
     const [events, sessions, open, weekly, selected] = await Promise.all([
       admin.from("attendance_events").select("event_type,server_timestamp,worker:profiles!attendance_events_user_id_fkey(id,display_name,company),project:projects!attendance_events_project_id_fkey(id,project_name,customer_name)").gte("server_timestamp", liveRange.start.toISOString()).lt("server_timestamp", liveRange.end.toISOString()),
-      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name)").gte("check_in_time", liveRange.start.toISOString()).lt("check_in_time", liveRange.end.toISOString()).order("check_in_time", { ascending: false }),
-      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name)").eq("status", "OPEN").order("check_in_time"),
+      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)").gte("check_in_time", liveRange.start.toISOString()).lt("check_in_time", liveRange.end.toISOString()).order("check_in_time", { ascending: false }),
+      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)").eq("status", "OPEN").order("check_in_time"),
       admin.from("work_sessions").select("check_in_time,duration_seconds").gte("check_in_time", weekStart.toISOString()),
-      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name)").gte("check_in_time", range.start.toISOString()).lt("check_in_time", range.end.toISOString()).order("check_in_time", { ascending: false }).limit(500),
+      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)").gte("check_in_time", new Date(Date.parse(`${range.date}T00:00:00.000Z`) - 14 * 60 * 60 * 1000).toISOString()).lt("check_in_time", new Date(Date.parse(`${range.date}T00:00:00.000Z`) + 36 * 60 * 60 * 1000).toISOString()).order("check_in_time", { ascending: false }).limit(500),
     ]);
     if (events.error) throw events.error;
     if (sessions.error) throw sessions.error;
@@ -110,7 +111,7 @@ export async function GET(request: NextRequest) {
         exceptions: peopleFromRows(sessionRows.filter((row) => ["MISSING_CHECKOUT", "LONG_SESSION"].includes(String(row.status))), "check_in_time"),
       },
       on_site: openRows,
-      recent: selected.data || [],
+      recent: ((selected.data || []) as DashboardRow[]).filter((row) => localDateKey(String(row.check_in_time), getSessionTimeZone(row)) === range.date),
       selected_date: range.date,
       daily_hours: dailyHours,
     });

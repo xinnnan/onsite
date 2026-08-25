@@ -1,6 +1,7 @@
 import "server-only";
 import { fetchAttendanceSessions, type AttendanceFilters } from "@/lib/admin-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSessionTimeZone, localDateKey, safeTimeZone } from "@/lib/timezones";
 
 type SnapshotSource = Record<string, string | number | null | undefined>;
 
@@ -37,7 +38,7 @@ export function getSessionSnapshot(row: Record<string, unknown>) {
     projectName: String(checkInEvent?.project_name_snapshot || project?.project_name || ""),
     siteName: String(checkInEvent?.site_name_snapshot || project?.site_name || ""),
     address: String(checkInEvent?.project_address_snapshot || [project?.address_line_1, project?.city, project?.state, project?.postal_code].filter(Boolean).join(", ")),
-    timezone: String(checkInEvent?.project_timezone_snapshot || project?.timezone || "UTC"),
+    timezone: safeTimeZone(checkInEvent?.project_timezone_snapshot || project?.timezone || "UTC"),
     mapPath: typeof mapPath === "string" ? mapPath : null,
     latitude: checkInEvent?.project_latitude_snapshot ?? project?.latitude ?? null,
     longitude: checkInEvent?.project_longitude_snapshot ?? project?.longitude ?? null,
@@ -63,7 +64,7 @@ export async function buildReportData(filters: AttendanceFilters) {
   for (const row of sessions) {
     const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
     const key = worker?.id || row.user_id;
-    const day = String(row.check_in_time).slice(0, 10);
+    const day = localDateKey(row.check_in_time, getSessionTimeZone(row));
     const seconds = Number(row.duration_seconds || 0);
     workDays.add(day);
     totalSeconds += seconds;

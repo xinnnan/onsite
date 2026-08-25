@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isValidTimeZone } from "@/lib/timezones";
 
 export const workerCreateSchema = z.object({
   username: z.string().trim().toLowerCase().regex(/^[a-z0-9._-]{3,40}$/),
@@ -40,7 +41,7 @@ const projectFields = z.object({
   state: z.string().trim().max(100).nullable().optional(),
   postal_code: z.string().trim().max(30).nullable().optional(),
   country: z.string().trim().min(2).max(100).default("United States"),
-  timezone: z.string().trim().min(3).max(100),
+  timezone: z.string().trim().min(3).max(100).refine(isValidTimeZone, "INVALID_TIMEZONE"),
   latitude: z.number().min(-90).max(90).nullable().optional(),
   longitude: z.number().min(-180).max(180).nullable().optional(),
   start_date: z.string().date().nullable().optional(),

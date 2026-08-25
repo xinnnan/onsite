@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
 import { signPrivateAsset } from "@/lib/admin-data";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
+import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
 
 export const runtime = "nodejs";
 
@@ -24,11 +25,12 @@ function demoPreview(body: PreviewRequest) {
       address: "8677 Impact Court, Indianapolis, IN 46219",
       latitude: 39.780625,
       longitude: -86.045711,
+      timezone: "America/Indiana/Indianapolis",
       map_url: null,
     },
     summary: { total_personnel: 1, total_work_sessions: 1, total_work_hours: 9.18, total_work_days: 1, incomplete_sessions: 0 },
     personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }],
-    sessions: [{ id: "demo-session", date: "2026-08-17", worker_name: "John Smith", company: DEMO_COMPANY_NAME, check_in: "2026-08-17T12:03:00Z", check_out: "2026-08-17T21:14:00Z", hours: 9.18, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。" }],
+    sessions: [{ id: "demo-session", date: "2026-08-17", timezone: "America/Indiana/Indianapolis", worker_name: "John Smith", company: DEMO_COMPANY_NAME, check_in: "2026-08-17T12:03:00Z", check_out: "2026-08-17T21:14:00Z", hours: 9.18, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。" }],
   };
 }
 
@@ -62,15 +64,18 @@ export async function POST(request: Request) {
         address: snapshot?.address || [project?.address_line_1, project?.address_line_2, project?.city, project?.state, project?.postal_code].filter(Boolean).join(", ") || "—",
         latitude: snapshot?.latitude ?? project?.latitude ?? null,
         longitude: snapshot?.longitude ?? project?.longitude ?? null,
+        timezone: snapshot?.timezone || project?.timezone || "UTC",
         map_url: mapUrl,
       },
       summary: report.summary,
       personnel: report.personnel,
       sessions: report.sessions.slice(0, 250).map((row) => {
         const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
+        const timezone = getSessionTimeZone(row);
         return {
           id: row.id,
-          date: String(row.check_in_time).slice(0, 10),
+          date: localDateKey(row.check_in_time, timezone),
+          timezone,
           worker_name: worker?.display_name || "—",
           company: worker?.company || "—",
           check_in: row.check_in_time,

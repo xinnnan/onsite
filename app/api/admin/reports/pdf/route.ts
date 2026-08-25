@@ -8,6 +8,7 @@ import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
 import { formatProjectCoordinates } from "@/lib/project-coordinates";
 import { buildPdfReportFilename } from "@/lib/report-filename";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
+import { formatLocalDate, formatLocalTime, getSessionTimeZone } from "@/lib/timezones";
 
 export const runtime = "nodejs";
 
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   try {
     const { demo } = await requireAuth("ADMIN");
     const body = await request.json() as { project_id?: string; worker_id?: string; start?: string; end?: string; include_photos?: boolean };
-    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME, worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null } }], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, selectedWorker: body.worker_id ? { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME } : null, companyName: DEMO_COMPANY_NAME, summary: { total_personnel: 1,total_work_sessions:1,total_work_hours:9.18,total_work_days:1,incomplete_sessions:0 }, personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME, worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_timezone_snapshot: "America/Indiana/Indianapolis", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null } }], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, selectedWorker: body.worker_id ? { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME } : null, companyName: DEMO_COMPANY_NAME, summary: { total_personnel: 1,total_work_sessions:1,total_work_hours:9.18,total_work_days:1,incomplete_sessions:0 }, personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
     const first = report.sessions[0];
     const snapshot = first ? getSessionSnapshot(first) : null;
     const selectedProject = report.selectedProject;
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       mapPath: snapshot?.mapPath || selectedProject?.map_image_path || null,
       latitude: snapshot?.latitude ?? selectedProject?.latitude ?? null,
       longitude: snapshot?.longitude ?? selectedProject?.longitude ?? null,
+      timezone: snapshot?.timezone || selectedProject?.timezone || "UTC",
     };
     const projectCoordinates = formatProjectCoordinates(project.latitude, project.longitude);
     const firstWorker = first ? (Array.isArray(first.worker) ? first.worker[0] : first.worker) : null;
@@ -61,11 +63,12 @@ export async function POST(request: Request) {
     const projectMapUrl = await loadPrivateAssetAsJpegDataUri("project-assets", project.mapPath);
     const tableRows = report.sessions.slice(0, 250).map((row) => {
       const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
+      const timezone = getSessionTimeZone(row);
       return h(View, { style: styles.row, key: row.id },
-        h(Text, { style: styles.cDate }, String(row.check_in_time).slice(0,10)),
+        h(Text, { style: styles.cDate }, formatLocalDate(row.check_in_time, timezone)),
         h(Text, { style: styles.cWorker }, worker?.display_name || ""),
-        h(Text, { style: styles.cTime }, new Date(row.check_in_time).toISOString().slice(11,16)),
-        h(Text, { style: styles.cTime }, row.check_out_time ? new Date(row.check_out_time).toISOString().slice(11,16) : "-"),
+        h(Text, { style: styles.cTime }, formatLocalTime(row.check_in_time, timezone)),
+        h(Text, { style: styles.cTime }, row.check_out_time ? formatLocalTime(row.check_out_time, timezone) : "-"),
         h(Text, { style: styles.cHours }, row.duration_seconds ? (Number(row.duration_seconds)/3600).toFixed(2) : "-"),
         h(Text, { style: styles.cStatus }, row.status));
     });
@@ -74,8 +77,9 @@ export async function POST(request: Request) {
       h(Text, { style: styles.pDays }, String(row.days_on_site)), h(Text, { style: styles.pHours }, String(row.hours))));
     const summaryRows = report.sessions.filter((row) => row.daily_work_summary).slice(0, 250).map((row) => {
       const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
+      const timezone = getSessionTimeZone(row);
       return h(View, { style: styles.row, key: `summary-${row.id}`, wrap: false },
-        h(Text, { style: styles.summaryDate }, String(row.check_in_time).slice(0, 10)),
+        h(Text, { style: styles.summaryDate }, formatLocalDate(row.check_in_time, timezone)),
         h(Text, { style: styles.summaryWorker }, worker?.display_name || ""),
         h(Text, { style: styles.summaryText }, row.daily_work_summary || ""));
     });
@@ -93,7 +97,7 @@ export async function POST(request: Request) {
     }));
     const photoPages = photoAssets.map(({ row, worker, checkInEvent, checkOutEvent, checkInUrl, checkOutUrl }) => h(Page, { size: "A4", style: styles.photoPage, key: `photo-${row.id}` },
       h(Text, { style: styles.photoHeading }, "ATTENDANCE PHOTOS"),
-      h(Text, { style: styles.photoMeta }, `${worker?.display_name || "Worker"} · ${String(row.check_in_time).slice(0, 10)} · ${getSessionSnapshot(row).projectName}`),
+      h(Text, { style: styles.photoMeta }, `${worker?.display_name || "Worker"} · ${formatLocalDate(row.check_in_time, getSessionTimeZone(row))} ${formatLocalTime(row.check_in_time, getSessionTimeZone(row))} · ${getSessionSnapshot(row).projectName} · ${getSessionTimeZone(row)}`),
       h(View, { style: styles.photoRow },
         h(View, { style: styles.photoCard },
           checkInUrl ? h(Image, { style: styles.photo, src: checkInUrl }) : h(View, { style: styles.photo }),
@@ -108,7 +112,7 @@ export async function POST(request: Request) {
         h(Text, { style: styles.title }, "SITE ATTENDANCE REPORT"), h(View, { style: styles.rule }),
         h(View, { style: styles.metadata },
           h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Customer"),h(Text,{style:styles.value},project.customerName),h(Text,{style:styles.label},"Project"),h(Text,{style:styles.value},project.projectName)),
-          h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Site"),h(Text,{style:styles.value},project.siteName),h(Text,{style:styles.label},"Address"),h(Text,{style:styles.value},project.address),h(Text,{style:styles.label},"Project reference coordinates"),h(Text,{style:styles.value},projectCoordinates || "-"),h(Text,{style:styles.label},"Reporting period"),h(Text,{style:styles.value},`${body.start || "All"} - ${body.end || "All"}`))),
+          h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Site"),h(Text,{style:styles.value},project.siteName),h(Text,{style:styles.label},"Address"),h(Text,{style:styles.value},project.address),h(Text,{style:styles.label},"Project reference coordinates"),h(Text,{style:styles.value},projectCoordinates || "-"),h(Text,{style:styles.label},"Project time zone"),h(Text,{style:styles.value},project.timezone),h(Text,{style:styles.label},"Reporting period (local dates)"),h(Text,{style:styles.value},`${body.start || "All"} - ${body.end || "All"}`))),
         projectMapUrl ? h(View, { style: styles.projectMapFrame }, h(Image, { style: styles.projectMap, src: projectMapUrl }), projectCoordinates ? h(Text, { style: styles.coordinateBadge }, projectCoordinates) : null) : null,
         h(Text,{style:styles.section},"SUMMARY"),
         h(View,{style:styles.stats},
@@ -119,7 +123,7 @@ export async function POST(request: Request) {
           ...personnelRows),
         h(Text,{style:styles.section},"DAILY ATTENDANCE"),
         h(View,{style:styles.table},
-          h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In"),h(Text,{style:styles.cTime},"Out"),h(Text,{style:styles.cHours},"Hours"),h(Text,{style:styles.cStatus},"Status")),
+          h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Local date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In (local)"),h(Text,{style:styles.cTime},"Out (local)"),h(Text,{style:styles.cHours},"Hours"),h(Text,{style:styles.cStatus},"Status")),
           ...tableRows),
         summaryRows.length ? h(React.Fragment, null,
           h(Text,{style:styles.section},"DAILY WORK SUMMARIES"),
