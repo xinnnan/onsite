@@ -65,6 +65,16 @@ export const projectUpdateSchema = projectFields.partial()
     path: ["latitude"],
   });
 
+const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/, "INVALID_LOCAL_DATETIME");
+
+export const manualAttendanceSchema = z.object({
+  user_id: z.string().min(1).max(100),
+  project_id: z.string().min(1).max(100),
+  check_in_time: localDateTime,
+  check_out_time: localDateTime.nullable().optional(),
+  admin_note: z.string().trim().max(1000).nullable().optional(),
+});
+
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown) {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
