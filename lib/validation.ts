@@ -73,6 +73,7 @@ export const manualAttendanceSchema = z.object({
   check_in_time: localDateTime,
   check_out_time: localDateTime.nullable().optional(),
   admin_note: z.string().trim().max(1000).nullable().optional(),
+  daily_work_summary: z.string().trim().max(1000).nullable().optional(),
 });
 
 export function parseBody<T>(schema: z.ZodType<T>, body: unknown) {

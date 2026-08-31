@@ -8,6 +8,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { safeTimeZone, zonedDateTimeToUtc } from "@/lib/timezones";
 import type { Profile, Project } from "@/lib/types";
 import { manualAttendanceSchema, parseBody } from "@/lib/validation";
+import { isWorkSummaryValid } from "@/lib/work-summary";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -38,11 +39,14 @@ export async function POST(request: Request) {
         check_in_time: optionalText(form.get("check_in_time")),
         check_out_time: optionalText(form.get("check_out_time")),
         admin_note: optionalText(form.get("admin_note")),
+        daily_work_summary: optionalText(form.get("daily_work_summary")),
       };
     } else {
       rawBody = await request.json();
     }
     const body = parseBody(manualAttendanceSchema, rawBody);
+    const dailyWorkSummary = body.daily_work_summary?.trim() || null;
+    if (dailyWorkSummary && !isWorkSummaryValid(dailyWorkSummary)) throw new ApiError(400, "WORK_SUMMARY_TOO_SHORT");
     if (!demo && (!UUID_PATTERN.test(body.user_id) || !UUID_PATTERN.test(body.project_id))) throw new ApiError(400, "INVALID_ATTENDANCE_TARGET");
     if (checkOutPhoto && !body.check_out_time) throw new ApiError(400, "CHECK_OUT_PHOTO_REQUIRES_TIME");
     const requestedTimeZone = demo ? "America/New_York" : null;
@@ -78,7 +82,7 @@ export async function POST(request: Request) {
 
     if (demo) {
       const id = crypto.randomUUID();
-      return NextResponse.json({ session: { id, user_id: body.user_id, project_id: body.project_id, check_in_time: checkIn.toISOString(), check_out_time: checkOut?.toISOString() || null, status: checkOut ? "MANUALLY_CORRECTED" : "OPEN", is_manual_entry: true, admin_note: body.admin_note || null }, demo: true }, { status: 201 });
+      return NextResponse.json({ session: { id, user_id: body.user_id, project_id: body.project_id, check_in_time: checkIn.toISOString(), check_out_time: checkOut?.toISOString() || null, status: checkOut ? "MANUALLY_CORRECTED" : "OPEN", is_manual_entry: true, admin_note: body.admin_note || null, daily_work_summary: dailyWorkSummary }, demo: true }, { status: 201 });
     }
 
     const admin = createSupabaseAdminClient();
@@ -114,6 +118,11 @@ export async function POST(request: Request) {
     try {
       await attachPhoto(preparedCheckIn, data.check_in_event, "CHECK_IN", checkIn);
       await attachPhoto(preparedCheckOut, data.check_out_event, "CHECK_OUT", checkOut);
+      if (dailyWorkSummary) {
+        const { data: updatedSession, error: summaryError } = await admin.from("work_sessions").update({ daily_work_summary: dailyWorkSummary }).eq("id", data.session.id).select().single();
+        if (summaryError || !updatedSession) throw new ApiError(500, "WORK_SUMMARY_UPDATE_FAILED", summaryError?.message);
+        data.session = updatedSession;
+      }
     } catch (photoError) {
       await cleanupAttendanceAssets(uploadedPaths);
       await admin.from("work_sessions").delete().eq("id", data.session.id);

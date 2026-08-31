@@ -8,6 +8,7 @@ import { writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, zonedDateTimeToUtc } from "@/lib/timezones";
 import type { Profile, Project } from "@/lib/types";
+import { isWorkSummaryValid } from "@/lib/work-summary";
 
 const ALLOWED_STATUSES = new Set(["COMPLETE", "MISSING_CHECKOUT", "LONG_SESSION", "MANUALLY_CORRECTED", "VOID"]);
 
@@ -19,6 +20,7 @@ type CorrectionBody = {
   status?: string;
   reason?: string;
   project_timezone?: string;
+  daily_work_summary?: string | null;
 };
 
 type AttendanceEvent = {
@@ -63,18 +65,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       checkInPhoto = optionalPhoto(form.get("check_in_photo"));
       checkOutPhoto = optionalPhoto(form.get("check_out_photo"));
       const checkOutValue = formText(form, "check_out_time");
+      const summaryValue = formText(form, "daily_work_summary");
       body = {
         check_in_time: formText(form, "check_in_time"),
         check_out_time: checkOutValue === "" ? null : checkOutValue,
         status: formText(form, "status"),
         reason: formText(form, "reason"),
         project_timezone: formText(form, "project_timezone"),
+        daily_work_summary: summaryValue === "" ? null : summaryValue,
       };
     } else {
       body = await request.json() as CorrectionBody;
     }
     if (!body.reason?.trim()) throw new ApiError(400, "CORRECTION_REASON_REQUIRED");
     if (body.status && !ALLOWED_STATUSES.has(body.status)) throw new ApiError(400, "INVALID_SESSION_STATUS");
+    const dailyWorkSummary = body.daily_work_summary?.trim() || null;
+    if (dailyWorkSummary && !isWorkSummaryValid(dailyWorkSummary)) throw new ApiError(400, "WORK_SUMMARY_TOO_SHORT");
     if (demo) {
       const checkIn = body.check_in_time ? zonedDateTimeToUtc(body.check_in_time, body.project_timezone || "UTC") : null;
       const checkOut = body.check_out_time ? zonedDateTimeToUtc(body.check_out_time, body.project_timezone || "UTC") : null;
@@ -82,7 +88,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.check_out_time && !checkOut) throw new ApiError(400, "INVALID_CHECK_OUT_TIME");
       if (checkOutPhoto && !checkOut) throw new ApiError(400, "CHECK_OUT_PHOTO_REQUIRES_TIME");
       await Promise.all([checkInPhoto ? normalizeSelfie(checkInPhoto) : null, checkOutPhoto ? normalizeSelfie(checkOutPhoto) : null]);
-      return NextResponse.json({ session: { id, ...body, check_in_time: checkIn?.toISOString(), check_out_time: checkOut?.toISOString() || null, status: body.status || "MANUALLY_CORRECTED" }, demo: true });
+      return NextResponse.json({ session: { id, ...body, check_in_time: checkIn?.toISOString(), check_out_time: checkOut?.toISOString() || null, status: body.status || "MANUALLY_CORRECTED", daily_work_summary: body.daily_work_summary === undefined ? undefined : dailyWorkSummary }, demo: true });
     }
 
     const admin = createSupabaseAdminClient();
@@ -190,6 +196,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         ...(body.check_in_time ? { check_in_time: finalCheckIn.toISOString() } : {}),
         ...(body.check_out_time !== undefined ? { check_out_time: finalCheckOut?.toISOString() || null } : {}),
         ...(createdCheckOutEventId ? { check_out_event_id: createdCheckOutEventId } : {}),
+        ...(body.daily_work_summary !== undefined ? { daily_work_summary: dailyWorkSummary } : {}),
         duration_seconds: finalCheckOut ? Math.max(0, Math.floor((finalCheckOut.valueOf() - finalCheckIn.valueOf()) / 1000)) : null,
         status: finalStatus,
       };
