@@ -293,9 +293,12 @@ form > label { display: block; margin: 20px 0 9px; font-size: 15px; font-weight:
 .page-title-row { min-height: 66px; display: flex; align-items: start; justify-content: space-between; margin-bottom: 27px; }
 .page-title-row p { margin: 0 0 7px; color: var(--muted); font-size: 14px; font-weight: 650; }
 .page-title-row h1 { margin: 0; font-size: 28px; letter-spacing: -.04em; }
-.admin-primary, .secondary-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 10px; color: white; background: var(--green); font-size: 14px; font-weight: 800; }
+.admin-primary, .secondary-button, .danger-button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 0; border-radius: 10px; color: white; background: var(--green); font-size: 14px; font-weight: 800; }
 .admin-primary:hover { background: var(--green-deep); }
 .secondary-button { border: 1px solid var(--line); color: var(--green); background: white; }
+.danger-button { color: white; background: #a84638; }
+.danger-button:hover { background: #8f352a; }
+.danger-button:disabled { cursor: wait; opacity: .65; }
 .welcome-strip { min-height: 92px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding: 20px 24px; border-radius: 15px; color: white; background: linear-gradient(105deg, #0f4c3a, #1d6650); }
 .welcome-strip p { margin: 0 0 7px; color: var(--mint); font-size: 14px; font-weight: 800; }
 .welcome-strip h2 { margin: 0; font-size: 17px; font-weight: 550; }
@@ -515,6 +518,8 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .filter-grid.attendance-filters button { justify-content: center; }
 .attendance-photo { width: 100%; aspect-ratio: 4/3; display: block; object-fit: contain; background: #e4ebe7; }
 .record-footer { grid-template-columns: .7fr 1fr 1fr 1.7fr 1.2fr auto; }
+.record-footer > .record-action-buttons { display: flex; align-items: center; gap: 8px; }
+.record-action-buttons button { white-space: nowrap; }
 .work-summary-record { margin-top: 13px; padding: 19px 21px; }
 .work-summary-record header { display: flex; align-items: center; gap: 8px; color: var(--green); }
 .work-summary-record header span { font-size: 13px; font-weight: 850; text-transform: uppercase; letter-spacing: .05em; }

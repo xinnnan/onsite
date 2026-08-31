@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { ApiError, apiErrorResponse, assertFound } from "@/lib/api";
 import { normalizeSelfie } from "@/lib/attendance-image";
-import { cleanupAttendanceAssets, uploadPreparedAttendanceAssets, type PreparedAttendancePhoto } from "@/lib/attendance-service";
+import { cleanupAttendanceAssetPaths, regenerateAttendanceWatermark, uploadPreparedAttendanceAssets, type PreparedAttendancePhoto } from "@/lib/attendance-service";
 import { requireAuth } from "@/lib/auth-context";
 import { writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -26,6 +26,7 @@ type CorrectionBody = {
 type AttendanceEvent = {
   id: string;
   record_code: string;
+  server_timestamp: string;
   original_photo_path?: string | null;
   watermarked_photo_path?: string | null;
   photo_hash?: string | null;
@@ -153,9 +154,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       createdCheckOutEventId = eventId;
     }
 
-    const newPaths: string[] = [];
-    const replacedPaths: string[] = [];
+    const newOriginalPaths: string[] = [];
+    const newWatermarkedPaths: string[] = [];
+    const replacedOriginalPaths: string[] = [];
+    const replacedWatermarkedPaths: string[] = [];
     const photoRollbacks: Array<{ event: AttendanceEvent; original_photo_path: string | null; watermarked_photo_path: string | null; photo_hash: string | null }> = [];
+    const watermarkRollbacks: Array<{ event: AttendanceEvent; watermarked_photo_path: string | null }> = [];
     async function replacePhoto(preparedPhoto: PreparedAttendancePhoto | null, event: AttendanceEvent | null, eventType: "CHECK_IN" | "CHECK_OUT", timestamp: Date | null) {
       if (!preparedPhoto) return;
       if (!event || !timestamp || !project || !worker) throw new ApiError(409, "ATTENDANCE_PHOTO_CONTEXT_MISSING");
@@ -175,7 +179,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         recordCode: event.record_code,
         assetId: `${event.id}-${randomUUID()}`,
       });
-      newPaths.push(assets.originalPath);
+      newOriginalPaths.push(assets.originalPath);
+      newWatermarkedPaths.push(assets.watermarkedPath);
       const { error: photoUpdateError } = await admin.from("attendance_events").update({
         original_photo_path: assets.originalPath,
         watermarked_photo_path: assets.watermarkedPath,
@@ -183,15 +188,38 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }).eq("id", event.id);
       if (photoUpdateError) throw new ApiError(500, "ATTENDANCE_PHOTO_UPDATE_FAILED", photoUpdateError.message);
       photoRollbacks.push(previous);
-      if (previous.original_photo_path) replacedPaths.push(previous.original_photo_path);
-      if (previous.watermarked_photo_path) replacedPaths.push(previous.watermarked_photo_path);
+      if (previous.original_photo_path) replacedOriginalPaths.push(previous.original_photo_path);
+      if (previous.watermarked_photo_path) replacedWatermarkedPaths.push(previous.watermarked_photo_path);
       Object.assign(event, { original_photo_path: assets.originalPath, watermarked_photo_path: assets.watermarkedPath, photo_hash: assets.hash });
     }
 
+    async function refreshWatermark(event: AttendanceEvent | null, eventType: "CHECK_IN" | "CHECK_OUT", timestamp: Date | null, replaced: boolean, needed: boolean) {
+      if (!event || !timestamp || replaced || !needed || !event.original_photo_path) return false;
+      if (!project || !worker) throw new ApiError(409, "ATTENDANCE_PHOTO_CONTEXT_MISSING");
+      const previous = event.watermarked_photo_path || null;
+      const watermarkedPath = await regenerateAttendanceWatermark({ project, profile: worker, event, eventType, timestamp });
+      if (!watermarkedPath) return false;
+      newWatermarkedPaths.push(watermarkedPath);
+      const { error: watermarkUpdateError } = await admin.from("attendance_events").update({ watermarked_photo_path: watermarkedPath }).eq("id", event.id);
+      if (watermarkUpdateError) throw new ApiError(500, "WATERMARK_REGENERATION_FAILED", watermarkUpdateError.message);
+      watermarkRollbacks.push({ event, watermarked_photo_path: previous });
+      if (previous) replacedWatermarkedPaths.push(previous);
+      event.watermarked_photo_path = watermarkedPath;
+      return true;
+    }
+
     let data;
+    let checkInWatermarkRegenerated = false;
+    let checkOutWatermarkRegenerated = false;
+    const checkInTimeChanged = finalCheckIn.valueOf() !== new Date(oldValue.check_in_time).valueOf();
+    const checkOutTimeChanged = (finalCheckOut?.valueOf() || null) !== (oldValue.check_out_time ? new Date(oldValue.check_out_time).valueOf() : null);
+    const checkInLegacyMismatch = Boolean(checkInEvent?.original_photo_path && checkInEvent.original_photo_path === checkInEvent.watermarked_photo_path && new Date(checkInEvent.server_timestamp).valueOf() !== finalCheckIn.valueOf());
+    const checkOutLegacyMismatch = Boolean(checkOutEvent?.original_photo_path && checkOutEvent.original_photo_path === checkOutEvent.watermarked_photo_path && finalCheckOut && new Date(checkOutEvent.server_timestamp).valueOf() !== finalCheckOut.valueOf());
     try {
       await replacePhoto(preparedCheckIn, checkInEvent, "CHECK_IN", finalCheckIn);
       await replacePhoto(preparedCheckOut, checkOutEvent, "CHECK_OUT", finalCheckOut);
+      checkInWatermarkRegenerated = await refreshWatermark(checkInEvent, "CHECK_IN", finalCheckIn, Boolean(preparedCheckIn), checkInTimeChanged || checkInLegacyMismatch);
+      checkOutWatermarkRegenerated = await refreshWatermark(checkOutEvent, "CHECK_OUT", finalCheckOut, Boolean(preparedCheckOut), checkOutTimeChanged || checkOutLegacyMismatch);
       const update = {
         ...(body.check_in_time ? { check_in_time: finalCheckIn.toISOString() } : {}),
         ...(body.check_out_time !== undefined ? { check_out_time: finalCheckOut?.toISOString() || null } : {}),
@@ -204,6 +232,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (result.error || !result.data) throw new ApiError(409, "SESSION_UPDATE_FAILED", result.error?.message);
       data = result.data;
     } catch (updateError) {
+      for (const rollback of watermarkRollbacks.reverse()) {
+        await admin.from("attendance_events").update({ watermarked_photo_path: rollback.watermarked_photo_path }).eq("id", rollback.event.id);
+      }
       for (const rollback of photoRollbacks) {
         await admin.from("attendance_events").update({
           original_photo_path: rollback.original_photo_path,
@@ -211,24 +242,69 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
           photo_hash: rollback.photo_hash,
         }).eq("id", rollback.event.id);
       }
-      await cleanupAttendanceAssets([...new Set(newPaths)]);
+      await cleanupAttendanceAssetPaths({ originalPaths: newOriginalPaths, watermarkedPaths: newWatermarkedPaths });
       if (createdCheckOutEventId) await admin.from("attendance_events").delete().eq("id", createdCheckOutEventId);
       throw updateError;
     }
 
-    await cleanupAttendanceAssets([...new Set(replacedPaths)].filter((path) => !newPaths.includes(path)));
+    await cleanupAttendanceAssetPaths({
+      originalPaths: [...new Set(replacedOriginalPaths)].filter((path) => !newOriginalPaths.includes(path)),
+      watermarkedPaths: [...new Set(replacedWatermarkedPaths)].filter((path) => !newWatermarkedPaths.includes(path)),
+    });
     await writeAuditLog({
       adminUserId: adminProfile.id,
       action: "WORK_SESSION_UPDATED",
       entityType: "WORK_SESSION",
       entityId: id,
       oldValue,
-      newValue: { ...data, check_in_photo_updated: Boolean(preparedCheckIn), check_out_photo_updated: Boolean(preparedCheckOut) },
+      newValue: {
+        ...data,
+        check_in_photo_updated: Boolean(preparedCheckIn),
+        check_out_photo_updated: Boolean(preparedCheckOut),
+        check_in_watermark_regenerated: checkInWatermarkRegenerated,
+        check_out_watermark_regenerated: checkOutWatermarkRegenerated,
+      },
       reason: body.reason.trim(),
     });
     return NextResponse.json({ session: data });
   } catch (error) {
     if (error instanceof Error && ["UNSUPPORTED_PHOTO_TYPE", "PHOTO_SIZE_INVALID", "INVALID_PHOTO"].includes(error.message)) return apiErrorResponse(new ApiError(400, error.message));
+    return apiErrorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { profile: adminProfile, demo } = await requireAuth("ADMIN");
+    const { id } = await params;
+    const body = await request.json().catch(() => ({})) as { reason?: string };
+    const reason = body.reason?.trim() || "";
+    if (reason.length < 5) throw new ApiError(400, "DELETION_REASON_REQUIRED");
+    if (demo) return NextResponse.json({ session: { id, status: "VOID" }, demo: true });
+
+    const admin = createSupabaseAdminClient();
+    const { data: oldValue } = await admin.from("work_sessions").select(`
+      *, worker:profiles!work_sessions_user_id_fkey(id,username,display_name,company),
+      project:projects!work_sessions_project_id_fkey(id,project_code,project_name,customer_name,site_name,timezone),
+      check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(*),
+      check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(*)
+    `).eq("id", id).single();
+    assertFound(oldValue, "SESSION_NOT_FOUND");
+    if (oldValue.status === "VOID") return NextResponse.json({ session: oldValue, deleted: true });
+
+    const { data, error } = await admin.from("work_sessions").update({ status: "VOID" }).eq("id", id).select().single();
+    if (error || !data) throw new ApiError(409, "SESSION_DELETE_FAILED", error?.message);
+    await writeAuditLog({
+      adminUserId: adminProfile.id,
+      action: "WORK_SESSION_DELETED",
+      entityType: "WORK_SESSION",
+      entityId: id,
+      oldValue,
+      newValue: { ...data, deleted: true },
+      reason,
+    });
+    return NextResponse.json({ session: data, deleted: true });
+  } catch (error) {
     return apiErrorResponse(error);
   }
 }

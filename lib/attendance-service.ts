@@ -19,6 +19,20 @@ async function getProjectMap(project: Project) {
 
 export type PreparedAttendancePhoto = Awaited<ReturnType<typeof normalizeSelfie>>;
 
+type WatermarkEventSnapshot = {
+  id: string;
+  record_code: string;
+  original_photo_path?: string | null;
+  project_name_snapshot?: string | null;
+  customer_name_snapshot?: string | null;
+  site_name_snapshot?: string | null;
+  project_address_snapshot?: string | null;
+  project_timezone_snapshot?: string | null;
+  project_map_path_snapshot?: string | null;
+  project_latitude_snapshot?: number | null;
+  project_longitude_snapshot?: number | null;
+};
+
 export async function uploadPreparedAttendanceAssets({
   project,
   profile,
@@ -53,6 +67,55 @@ export async function uploadPreparedAttendanceAssets({
   return { originalPath: path, watermarkedPath: path, hash: preparedPhoto.hash, recordCode };
 }
 
+export async function regenerateAttendanceWatermark({
+  project,
+  profile,
+  event,
+  eventType,
+  timestamp,
+}: {
+  project: Project;
+  profile: Profile;
+  event: WatermarkEventSnapshot;
+  eventType: "CHECK_IN" | "CHECK_OUT";
+  timestamp: Date;
+}) {
+  if (!event.original_photo_path) return null;
+  const admin = createSupabaseAdminClient();
+  const { data: original, error: originalError } = await admin.storage.from("attendance-originals").download(event.original_photo_path);
+  if (originalError || !original) throw new ApiError(500, "ORIGINAL_PHOTO_DOWNLOAD_FAILED", originalError?.message);
+
+  const snapshotProject: Project = {
+    ...project,
+    project_name: event.project_name_snapshot || project.project_name,
+    customer_name: event.customer_name_snapshot || project.customer_name,
+    site_name: event.site_name_snapshot ?? project.site_name,
+    address_line_1: event.project_address_snapshot || project.address_line_1,
+    address_line_2: null,
+    city: "",
+    state: null,
+    postal_code: null,
+    timezone: event.project_timezone_snapshot || project.timezone,
+    map_image_path: event.project_map_path_snapshot ?? project.map_image_path,
+    latitude: event.project_latitude_snapshot ?? project.latitude,
+    longitude: event.project_longitude_snapshot ?? project.longitude,
+  };
+  const map = await getProjectMap(snapshotProject);
+  const watermarked = await createWatermarkedPhoto({
+    selfie: Buffer.from(await original.arrayBuffer()),
+    map,
+    eventType,
+    profile,
+    project: snapshotProject,
+    timestamp,
+    recordCode: event.record_code,
+  });
+  const path = `${project.id}/${datePath(timestamp)}/${profile.id}/${event.id}-${randomUUID()}.webp`;
+  const { error: uploadError } = await admin.storage.from("attendance-watermarked").upload(path, watermarked, { contentType: "image/webp", upsert: false });
+  if (uploadError) throw new ApiError(500, "WATERMARK_REGENERATION_FAILED", uploadError.message);
+  return path;
+}
+
 async function uploadAttendanceAssets({
   project,
   profile,
@@ -74,11 +137,17 @@ async function uploadAttendanceAssets({
 }
 
 export async function cleanupAttendanceAssets(paths: string[]) {
-  if (!paths.length) return;
+  await cleanupAttendanceAssetPaths({ originalPaths: paths, watermarkedPaths: paths });
+}
+
+export async function cleanupAttendanceAssetPaths({ originalPaths = [], watermarkedPaths = [] }: { originalPaths?: string[]; watermarkedPaths?: string[] }) {
+  const originals = [...new Set(originalPaths.filter(Boolean))];
+  const watermarked = [...new Set(watermarkedPaths.filter(Boolean))];
+  if (!originals.length && !watermarked.length) return;
   const admin = createSupabaseAdminClient();
   await Promise.all([
-    admin.storage.from("attendance-originals").remove(paths),
-    admin.storage.from("attendance-watermarked").remove(paths),
+    originals.length ? admin.storage.from("attendance-originals").remove(originals) : Promise.resolve(),
+    watermarked.length ? admin.storage.from("attendance-watermarked").remove(watermarked) : Promise.resolve(),
   ]);
 }
 

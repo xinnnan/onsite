@@ -16,7 +16,7 @@ export async function GET() {
     const [projectsResult, sessionResult, eventsResult] = await Promise.all([
       supabase.from("project_assignments").select("project:projects(*)").eq("user_id", profile.id).eq("status", "ACTIVE"),
       supabase.from("work_sessions").select("*, project:projects(*)").eq("user_id", profile.id).eq("status", "OPEN").maybeSingle(),
-      supabase.from("attendance_events").select("id,record_code,event_type,server_timestamp,project_name_snapshot").eq("user_id", profile.id).gte("server_timestamp", today.toISOString()).order("server_timestamp"),
+      supabase.from("attendance_events").select("id,record_code,event_type,server_timestamp,project_name_snapshot,check_in_session:work_sessions!work_sessions_check_in_event_id_fkey(status),check_out_session:work_sessions!work_sessions_check_out_event_id_fkey(status)").eq("user_id", profile.id).gte("server_timestamp", today.toISOString()).order("server_timestamp"),
     ]);
     if (projectsResult.error) throw projectsResult.error;
     if (sessionResult.error) throw sessionResult.error;
@@ -25,7 +25,11 @@ export async function GET() {
       profile,
       projects: projectsResult.data?.map((row) => row.project).filter(Boolean) ?? [],
       session: sessionResult.data,
-      today: eventsResult.data ?? [],
+      today: (eventsResult.data ?? []).filter((event) => {
+        const relation = event.event_type === "CHECK_OUT" ? event.check_out_session : event.check_in_session;
+        const session = Array.isArray(relation) ? relation[0] : relation;
+        return session && session.status !== "VOID";
+      }),
     });
   } catch (error) {
     return apiErrorResponse(error);
