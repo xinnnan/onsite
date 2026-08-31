@@ -139,7 +139,8 @@ export default function AdminShell({ view }: { view: AdminView }) {
     if (view === "users") return "/api/admin/users";
     if (view === "projects") return "/api/admin/projects";
     if (view === "project-detail") return `/api/admin/projects/${id}`;
-    if (view === "assignments" || view === "reports") return "/api/admin/project-assignments";
+    if (view === "assignments") return "/api/admin/project-assignments?active_only=true";
+    if (view === "reports") return "/api/admin/project-assignments";
     if (view === "attendance") return "/api/admin/attendance";
     if (view === "attendance-detail") return `/api/admin/attendance/${id}`;
     return "/api/admin/audit-logs";

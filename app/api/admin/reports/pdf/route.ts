@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
   section: { fontSize: 10, color: "#0f4c3a", fontWeight: 700, marginTop: 16, marginBottom: 8 },
   stats: { display: "flex", flexDirection: "row", gap: 6 }, stat: { flex: 1, border: "1 solid #dce5e0", padding: 8 }, statValue: { fontSize: 15, fontWeight: 700, marginTop: 4 },
   table: { borderTop: "1 solid #cbd8d2" }, row: { display: "flex", flexDirection: "row", borderBottom: "1 solid #e2e9e5", minHeight: 22, alignItems: "center" },
-  header: { backgroundColor: "#edf4f0", fontWeight: 700 }, cDate: { width: "14%", padding: 4 }, cWorker: { width: "25%", padding: 4 }, cTime: { width: "16%", padding: 4 }, cHours: { width: "13%", padding: 4 }, cStatus: { width: "16%", padding: 4 },
+  header: { backgroundColor: "#edf4f0", fontWeight: 700 }, cDate: { width: "16%", padding: 4 }, cWorker: { width: "28%", padding: 4 }, cTime: { width: "19%", padding: 4 }, cHours: { width: "18%", padding: 4 },
   pWorker: { width: "36%", padding: 4 }, pCompany: { width: "34%", padding: 4 }, pDays: { width: "15%", padding: 4 }, pHours: { width: "15%", padding: 4 },
   summaryDate: { width: "16%", padding: 5 }, summaryWorker: { width: "24%", padding: 5 }, summaryText: { width: "60%", padding: 5, lineHeight: 1.55 },
   photoPage: { padding: 34, fontSize: 8, color: "#243b35", fontFamily: "NotoSansSC" }, photoHeading: { fontSize: 13, fontWeight: 700, color: "#0f4c3a" },
@@ -69,8 +69,7 @@ export async function POST(request: Request) {
         h(Text, { style: styles.cWorker }, worker?.display_name || ""),
         h(Text, { style: styles.cTime }, formatLocalTime(row.check_in_time, timezone)),
         h(Text, { style: styles.cTime }, row.check_out_time ? formatLocalTime(row.check_out_time, timezone) : "-"),
-        h(Text, { style: styles.cHours }, row.duration_seconds ? (Number(row.duration_seconds)/3600).toFixed(2) : "-"),
-        h(Text, { style: styles.cStatus }, row.is_manual_entry ? "ADMIN ENTRY" : row.status));
+        h(Text, { style: styles.cHours }, row.duration_seconds ? (Number(row.duration_seconds)/3600).toFixed(2) : "-"));
     });
     const personnelRows = report.personnel.map((row) => h(View, { style: styles.row, key: `${row.name}-${row.company}` },
       h(Text, { style: styles.pWorker }, row.name), h(Text, { style: styles.pCompany }, row.company || "-"),
@@ -136,7 +135,7 @@ export async function POST(request: Request) {
           ...personnelRows),
         h(Text,{style:styles.section},"DAILY ATTENDANCE"),
         h(View,{style:styles.table},
-          h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Local date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In (local)"),h(Text,{style:styles.cTime},"Out (local)"),h(Text,{style:styles.cHours},"Hours"),h(Text,{style:styles.cStatus},"Status")),
+          h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Local date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In (local)"),h(Text,{style:styles.cTime},"Out (local)"),h(Text,{style:styles.cHours},"Hours")),
           ...tableRows),
         summaryRows.length ? h(React.Fragment, null,
           h(Text,{style:styles.section},"DAILY WORK SUMMARIES"),

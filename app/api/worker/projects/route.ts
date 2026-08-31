@@ -15,7 +15,9 @@ export async function GET() {
       .select("project:projects(id,project_code,project_name,customer_name,site_name,address_line_1,address_line_2,city,state,postal_code,country,timezone,status)")
       .eq("user_id", profile.id).eq("status", "ACTIVE");
     if (error) throw error;
-    return NextResponse.json({ projects: data?.map((row) => row.project).filter(Boolean) ?? [] });
+    const projects = data?.flatMap((row) => Array.isArray(row.project) ? row.project : row.project ? [row.project] : [])
+      .filter((project) => project.status === "ACTIVE") ?? [];
+    return NextResponse.json({ projects });
   } catch (error) {
     return apiErrorResponse(error);
   }

@@ -17,20 +17,32 @@ function uniqueIds(value: unknown) {
   return [...new Set(value.filter((id): id is string => typeof id === "string" && id.length > 0))];
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { demo } = await requireAuth("ADMIN");
     if (demo) return NextResponse.json({ assignments: [], users: [], projects: [], demo: true });
+    const activeOnly = new URL(request.url).searchParams.get("active_only") === "true";
     const admin = createSupabaseAdminClient();
+    let usersQuery = admin.from("profiles").select("id,username,display_name,company,worker_type,status").eq("role", "WORKER");
+    let projectsQuery = admin.from("projects").select("id,project_code,project_name,status");
+    if (activeOnly) {
+      usersQuery = usersQuery.eq("status", "ACTIVE");
+      projectsQuery = projectsQuery.eq("status", "ACTIVE");
+    }
     const [assignments, users, projects] = await Promise.all([
       admin.from("project_assignments").select("*,user:profiles(id,username,display_name,company,status),project:projects(id,project_code,project_name,status)").order("assigned_at", { ascending: false }),
-      admin.from("profiles").select("id,username,display_name,company,worker_type,status").eq("role", "WORKER").order("display_name"),
-      admin.from("projects").select("id,project_code,project_name,status").order("project_name"),
+      usersQuery.order("display_name"),
+      projectsQuery.order("project_name"),
     ]);
     if (assignments.error) throw assignments.error;
     if (users.error) throw users.error;
     if (projects.error) throw projects.error;
-    return NextResponse.json({ assignments: assignments.data || [], users: users.data || [], projects: projects.data || [] });
+    const activeUserIds = new Set((users.data || []).map((user) => user.id));
+    const activeProjectIds = new Set((projects.data || []).map((project) => project.id));
+    const visibleAssignments = activeOnly
+      ? (assignments.data || []).filter((assignment) => activeUserIds.has(assignment.user_id) && activeProjectIds.has(assignment.project_id))
+      : assignments.data || [];
+    return NextResponse.json({ assignments: visibleAssignments, users: users.data || [], projects: projects.data || [] });
   } catch (error) { return apiErrorResponse(error); }
 }
 
@@ -48,14 +60,16 @@ export async function POST(request: Request) {
       }
       if (demo) return NextResponse.json({ ok: true, updated: pairCount, demo: true });
       const admin = createSupabaseAdminClient();
-      const [workers, projects] = await Promise.all([
-        admin.from("profiles").select("id").eq("role", "WORKER").in("id", userIds),
-        admin.from("projects").select("id").in("id", projectIds),
-      ]);
-      if (workers.error) throw workers.error;
-      if (projects.error) throw projects.error;
-      if ((workers.data?.length || 0) !== userIds.length || (projects.data?.length || 0) !== projectIds.length) {
-        throw new ApiError(400, "INVALID_BATCH_ASSIGNMENT_TARGET");
+      if (body.assigned) {
+        const [workers, projects] = await Promise.all([
+          admin.from("profiles").select("id").eq("role", "WORKER").eq("status", "ACTIVE").in("id", userIds),
+          admin.from("projects").select("id").eq("status", "ACTIVE").in("id", projectIds),
+        ]);
+        if (workers.error) throw workers.error;
+        if (projects.error) throw projects.error;
+        if ((workers.data?.length || 0) !== userIds.length || (projects.data?.length || 0) !== projectIds.length) {
+          throw new ApiError(400, "INVALID_BATCH_ASSIGNMENT_TARGET");
+        }
       }
       const timestamp = new Date().toISOString();
       let updated = 0;
@@ -88,6 +102,15 @@ export async function POST(request: Request) {
     if (!body.user_id || !body.project_id || typeof body.assigned !== "boolean") throw new ApiError(400, "INVALID_ASSIGNMENT_PAYLOAD");
     if (demo) return NextResponse.json({ ok: true, demo: true });
     const admin = createSupabaseAdminClient();
+    if (body.assigned) {
+      const [worker, project] = await Promise.all([
+        admin.from("profiles").select("id").eq("id", body.user_id).eq("role", "WORKER").eq("status", "ACTIVE").maybeSingle(),
+        admin.from("projects").select("id").eq("id", body.project_id).eq("status", "ACTIVE").maybeSingle(),
+      ]);
+      if (worker.error) throw worker.error;
+      if (project.error) throw project.error;
+      if (!worker.data || !project.data) throw new ApiError(400, "INVALID_ASSIGNMENT_TARGET");
+    }
     const { data: oldValue } = await admin.from("project_assignments").select("*").eq("user_id", body.user_id).eq("project_id", body.project_id).maybeSingle();
     const next = body.assigned ? { status: "ACTIVE", assigned_at: new Date().toISOString(), removed_at: null } : { status: "REMOVED", removed_at: new Date().toISOString() };
     const { data, error } = await admin.from("project_assignments").upsert({ user_id: body.user_id, project_id: body.project_id, ...next }, { onConflict: "user_id,project_id" }).select().single();
