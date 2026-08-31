@@ -537,9 +537,17 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .modal-form label > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .modal-form input, .modal-form select, .modal-form textarea { width: 100%; min-height: 41px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; outline: 0; color: var(--ink); background: white; font: 14px/1.4 inherit; }
 .modal-form textarea { min-height: 96px; resize: vertical; }
-.manual-photo-field input[type="file"] { min-height: 74px; padding: 8px; color: var(--muted); font-size: 12px; cursor: pointer; }
-.manual-photo-field input[type="file"]::file-selector-button { margin-right: 9px; padding: 8px 10px; border: 0; border-radius: 7px; color: var(--green); background: var(--green-pale); font: 750 12px/1 inherit; cursor: pointer; }
-.manual-photo-field small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.manual-photo-field { display: grid; align-content: start; gap: 6px; }
+.manual-photo-field > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.photo-drop-zone { min-height: 112px; display: grid; place-items: center; align-content: center; gap: 5px; padding: 13px; border: 1.5px dashed #b9cac2; border-radius: 10px; outline: 0; color: var(--green); background: #f7faf8; text-align: center; cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+.photo-drop-zone:hover, .photo-drop-zone:focus-visible, .photo-drop-zone.dragging { border-color: var(--green); background: var(--green-pale); }
+.photo-drop-zone.dragging { transform: scale(1.015); }
+.photo-drop-zone.selected { border-style: solid; border-color: #8fb4a5; background: #f0f7f3; }
+.photo-drop-zone strong { max-width: 100%; overflow: hidden; color: var(--ink); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.photo-drop-zone small { color: var(--muted); font-size: 11px; line-height: 1.45; }
+.modal-form .photo-drop-input { display: none; }
+.photo-drop-clear { justify-self: start; display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; color: #8a4438; background: transparent; font-size: 11px; font-weight: 750; cursor: pointer; }
+.manual-photo-field .photo-drop-error { color: #a34537; font-size: 11px; line-height: 1.45; }
 .correction-timezone-note { grid-column: span 2; margin: 0; padding: 11px 13px; border: 1px solid #cfe0d8; border-radius: 9px; color: #315d50; background: #f1f7f4; font-size: 13px; line-height: 1.55; }
 .modal-form input:focus, .modal-form select:focus, .modal-form textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(15,76,58,.07); }
 .modal-error { margin: 0 21px 12px; padding: 9px 11px; border-radius: 8px; color: #963e31; background: #f8e6e2; font-size: 13px; }
