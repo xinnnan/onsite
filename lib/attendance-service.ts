@@ -27,6 +27,7 @@ export async function uploadPreparedAttendanceAssets({
   timestamp,
   eventId,
   recordCode,
+  assetId,
 }: {
   project: Project;
   profile: Profile;
@@ -35,9 +36,10 @@ export async function uploadPreparedAttendanceAssets({
   timestamp: Date;
   eventId: string;
   recordCode: string;
+  assetId?: string;
 }) {
   const admin = createSupabaseAdminClient();
-  const path = `${project.id}/${datePath(timestamp)}/${profile.id}/${eventId}.webp`;
+  const path = `${project.id}/${datePath(timestamp)}/${profile.id}/${assetId || eventId}.webp`;
   const map = await getProjectMap(project);
   const watermarked = await createWatermarkedPhoto({ selfie: preparedPhoto.buffer, map, eventType, profile, project, timestamp, recordCode });
 
