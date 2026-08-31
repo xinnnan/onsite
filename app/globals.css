@@ -537,6 +537,9 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .modal-form label > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .modal-form input, .modal-form select, .modal-form textarea { width: 100%; min-height: 41px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; outline: 0; color: var(--ink); background: white; font: 14px/1.4 inherit; }
 .modal-form textarea { min-height: 96px; resize: vertical; }
+.manual-photo-field input[type="file"] { min-height: 74px; padding: 8px; color: var(--muted); font-size: 12px; cursor: pointer; }
+.manual-photo-field input[type="file"]::file-selector-button { margin-right: 9px; padding: 8px 10px; border: 0; border-radius: 7px; color: var(--green); background: var(--green-pale); font: 750 12px/1 inherit; cursor: pointer; }
+.manual-photo-field small { color: var(--muted); font-size: 11px; line-height: 1.45; }
 .correction-timezone-note { grid-column: span 2; margin: 0; padding: 11px 13px; border: 1px solid #cfe0d8; border-radius: 9px; color: #315d50; background: #f1f7f4; font-size: 13px; line-height: 1.55; }
 .modal-form input:focus, .modal-form select:focus, .modal-form textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(15,76,58,.07); }
 .modal-error { margin: 0 21px 12px; padding: 9px 11px; border-radius: 8px; color: #963e31; background: #f8e6e2; font-size: 13px; }

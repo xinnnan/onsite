@@ -17,6 +17,40 @@ async function getProjectMap(project: Project) {
   return Buffer.from(await data.arrayBuffer());
 }
 
+export type PreparedAttendancePhoto = Awaited<ReturnType<typeof normalizeSelfie>>;
+
+export async function uploadPreparedAttendanceAssets({
+  project,
+  profile,
+  preparedPhoto,
+  eventType,
+  timestamp,
+  eventId,
+  recordCode,
+}: {
+  project: Project;
+  profile: Profile;
+  preparedPhoto: PreparedAttendancePhoto;
+  eventType: "CHECK_IN" | "CHECK_OUT";
+  timestamp: Date;
+  eventId: string;
+  recordCode: string;
+}) {
+  const admin = createSupabaseAdminClient();
+  const path = `${project.id}/${datePath(timestamp)}/${profile.id}/${eventId}.webp`;
+  const map = await getProjectMap(project);
+  const watermarked = await createWatermarkedPhoto({ selfie: preparedPhoto.buffer, map, eventType, profile, project, timestamp, recordCode });
+
+  const originalUpload = await admin.storage.from("attendance-originals").upload(path, preparedPhoto.buffer, { contentType: "image/webp", upsert: false });
+  if (originalUpload.error) throw new ApiError(500, "ORIGINAL_UPLOAD_FAILED", originalUpload.error.message);
+  const watermarkUpload = await admin.storage.from("attendance-watermarked").upload(path, watermarked, { contentType: "image/webp", upsert: false });
+  if (watermarkUpload.error) {
+    await admin.storage.from("attendance-originals").remove([path]);
+    throw new ApiError(500, "WATERMARK_UPLOAD_FAILED", watermarkUpload.error.message);
+  }
+  return { originalPath: path, watermarkedPath: path, hash: preparedPhoto.hash, recordCode };
+}
+
 async function uploadAttendanceAssets({
   project,
   profile,
@@ -32,24 +66,13 @@ async function uploadAttendanceAssets({
   timestamp: Date;
   eventId: string;
 }) {
-  const admin = createSupabaseAdminClient();
   const normalized = await normalizeSelfie(photo);
   const recordCode = `ATT-${eventId.replaceAll("-", "").slice(0, 12).toUpperCase()}`;
-  const path = `${project.id}/${datePath(timestamp)}/${profile.id}/${eventId}.webp`;
-  const map = await getProjectMap(project);
-  const watermarked = await createWatermarkedPhoto({ selfie: normalized.buffer, map, eventType, profile, project, timestamp, recordCode });
-
-  const originalUpload = await admin.storage.from("attendance-originals").upload(path, normalized.buffer, { contentType: "image/webp", upsert: false });
-  if (originalUpload.error) throw new ApiError(500, "ORIGINAL_UPLOAD_FAILED", originalUpload.error.message);
-  const watermarkUpload = await admin.storage.from("attendance-watermarked").upload(path, watermarked, { contentType: "image/webp", upsert: false });
-  if (watermarkUpload.error) {
-    await admin.storage.from("attendance-originals").remove([path]);
-    throw new ApiError(500, "WATERMARK_UPLOAD_FAILED", watermarkUpload.error.message);
-  }
-  return { originalPath: path, watermarkedPath: path, hash: normalized.hash, recordCode };
+  return uploadPreparedAttendanceAssets({ project, profile, preparedPhoto: normalized, eventType, timestamp, eventId, recordCode });
 }
 
-async function cleanupAssets(paths: string[]) {
+export async function cleanupAttendanceAssets(paths: string[]) {
+  if (!paths.length) return;
   const admin = createSupabaseAdminClient();
   await Promise.all([
     admin.storage.from("attendance-originals").remove(paths),
@@ -81,7 +104,7 @@ export async function checkIn({ profile, projectId, photo, clientCaptureTime }: 
     p_server_timestamp: serverTimestamp.toISOString(),
   });
   if (error) {
-    await cleanupAssets([assets.originalPath]);
+    await cleanupAttendanceAssets([assets.originalPath]);
     throw new ApiError(409, "CHECK_IN_FAILED", error.message);
   }
   return data;
@@ -109,7 +132,7 @@ export async function checkOut({ profile, photo, clientCaptureTime, dailyWorkSum
     p_daily_work_summary: dailyWorkSummary,
   });
   if (error) {
-    await cleanupAssets([assets.originalPath]);
+    await cleanupAttendanceAssets([assets.originalPath]);
     throw new ApiError(409, "CHECK_OUT_FAILED", error.message);
   }
   return data;
