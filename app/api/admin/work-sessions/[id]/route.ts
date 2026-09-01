@@ -10,7 +10,7 @@ import { getSessionTimeZone, zonedDateTimeToUtc } from "@/lib/timezones";
 import type { Profile, Project } from "@/lib/types";
 import { isWorkSummaryValid } from "@/lib/work-summary";
 
-const ALLOWED_STATUSES = new Set(["COMPLETE", "MISSING_CHECKOUT", "LONG_SESSION", "MANUALLY_CORRECTED", "VOID"]);
+const ALLOWED_STATUSES = new Set(["COMPLETE", "MISSING_CHECKOUT", "LONG_SESSION", "MANUALLY_CORRECTED"]);
 
 export const runtime = "nodejs";
 
@@ -280,30 +280,21 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const body = await request.json().catch(() => ({})) as { reason?: string };
     const reason = body.reason?.trim() || "";
     if (reason.length < 5) throw new ApiError(400, "DELETION_REASON_REQUIRED");
-    if (demo) return NextResponse.json({ session: { id, status: "VOID" }, demo: true });
+    if (demo) return NextResponse.json({ deleted: true, demo: true });
 
     const admin = createSupabaseAdminClient();
-    const { data: oldValue } = await admin.from("work_sessions").select(`
-      *, worker:profiles!work_sessions_user_id_fkey(id,username,display_name,company),
-      project:projects!work_sessions_project_id_fkey(id,project_code,project_name,customer_name,site_name,timezone),
-      check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(*),
-      check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(*)
-    `).eq("id", id).single();
-    assertFound(oldValue, "SESSION_NOT_FOUND");
-    if (oldValue.status === "VOID") return NextResponse.json({ session: oldValue, deleted: true });
-
-    const { data, error } = await admin.from("work_sessions").update({ status: "VOID" }).eq("id", id).select().single();
-    if (error || !data) throw new ApiError(409, "SESSION_DELETE_FAILED", error?.message);
-    await writeAuditLog({
-      adminUserId: adminProfile.id,
-      action: "WORK_SESSION_DELETED",
-      entityType: "WORK_SESSION",
-      entityId: id,
-      oldValue,
-      newValue: { ...data, deleted: true },
-      reason,
+    const { data, error } = await admin.rpc("delete_work_session", {
+      p_session_id: id,
+      p_admin_profile_id: adminProfile.id,
+      p_reason: reason,
     });
-    return NextResponse.json({ session: data, deleted: true });
+    if (error || !data) throw new ApiError(409, "SESSION_DELETE_FAILED", error?.message);
+    const deleted = data as { original_photo_paths?: string[]; watermarked_photo_paths?: string[] };
+    await cleanupAttendanceAssetPaths({
+      originalPaths: deleted.original_photo_paths || [],
+      watermarkedPaths: deleted.watermarked_photo_paths || [],
+    });
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     return apiErrorResponse(error);
   }

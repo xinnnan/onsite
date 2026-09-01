@@ -29,7 +29,6 @@ export async function fetchAttendanceSessions(filters: AttendanceFilters = {}) {
   if (filters.start) query = query.gte("check_in_time", new Date(Date.parse(`${filters.start}T00:00:00.000Z`) - 14 * 60 * 60 * 1000).toISOString());
   if (filters.end) query = query.lte("check_in_time", new Date(Date.parse(`${filters.end}T23:59:59.999Z`) + 12 * 60 * 60 * 1000).toISOString());
   if (filters.status) query = query.eq("status", filters.status);
-  else query = query.neq("status", "VOID");
   const { data, error } = await query;
   if (error) throw error;
   return (data || []).filter((row) => {

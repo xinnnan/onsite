@@ -2,7 +2,7 @@ export type UserRole = "WORKER" | "ADMIN";
 export type ProfileStatus = "ACTIVE" | "DISABLED";
 export type WorkerType = "EMPLOYEE" | "CONTRACTOR" | "SUBCONTRACTOR" | "PARTNER" | "TEMPORARY_WORKER";
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";
-export type WorkSessionStatus = "OPEN" | "COMPLETE" | "MISSING_CHECKOUT" | "LONG_SESSION" | "MANUALLY_CORRECTED" | "VOID";
+export type WorkSessionStatus = "OPEN" | "COMPLETE" | "MISSING_CHECKOUT" | "LONG_SESSION" | "MANUALLY_CORRECTED";
 
 export interface Profile {
   id: string;

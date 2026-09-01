@@ -19,20 +19,19 @@ export async function POST(request: Request) {
     sheet.columns = [
       ["Customer","customer",18],["Project","project",24],["Site","site",24],["Project Address","address",34],["Project Latitude","latitude",18],["Project Longitude","longitude",18],["Project Time Zone","timezone",30],["Date (Local)","date",14],
       ["Worker","worker",20],["Company","company",20],["Worker Type","workerType",18],["Check In (Local)","checkInLocal",26],["Check Out (Local)","checkOutLocal",26],["Check In (Server UTC)","checkInUtc",24],["Check Out (Server UTC)","checkOutUtc",24],
-      ["Total Hours","hours",14],["Manual Entry","manualEntry",14],["Admin Note","adminNote",40],["Daily Work Summary","workSummary",52],["Check-In Photo Reference","inPhoto",25],["Check-Out Photo Reference","outPhoto",25],
+      ["Total Hours","hours",14],["Manual Entry","manualEntry",14],["Daily Work Summary","workSummary",52],["Check-In Photo Reference","inPhoto",25],["Check-Out Photo Reference","outPhoto",25],
     ].map(([header,key,width]) => ({ header: String(header), key: String(key), width: Number(width) }));
     for (const row of report.sessions) {
       const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
       const snapshot = getSessionSnapshot(row);
       const checkInEvent = Array.isArray(row.check_in_event) ? row.check_in_event[0] : row.check_in_event;
       const checkOutEvent = Array.isArray(row.check_out_event) ? row.check_out_event[0] : row.check_out_event;
-      const added = sheet.addRow({ customer: snapshot.customerName, project: snapshot.projectName, site: snapshot.siteName, address: snapshot.address, latitude: snapshot.latitude ?? "", longitude: snapshot.longitude ?? "", timezone: snapshot.timezone, date: localDateKey(row.check_in_time, snapshot.timezone), worker: worker?.display_name, company: worker?.company, workerType: worker?.worker_type, checkInLocal: formatLocalDateTime(row.check_in_time, snapshot.timezone), checkOutLocal: row.check_out_time ? formatLocalDateTime(row.check_out_time, snapshot.timezone) : "", checkInUtc: row.check_in_time, checkOutUtc: row.check_out_time || "", hours: row.duration_seconds ? Number((Number(row.duration_seconds)/3600).toFixed(2)) : "", manualEntry: row.is_manual_entry ? "Yes" : "No", adminNote: row.admin_note || "", workSummary: row.daily_work_summary || "", inPhoto: checkInEvent?.record_code || "", outPhoto: checkOutEvent?.record_code || "" });
-      added.getCell("adminNote").alignment = { vertical: "top", wrapText: true };
+      const added = sheet.addRow({ customer: snapshot.customerName, project: snapshot.projectName, site: snapshot.siteName, address: snapshot.address, latitude: snapshot.latitude ?? "", longitude: snapshot.longitude ?? "", timezone: snapshot.timezone, date: localDateKey(row.check_in_time, snapshot.timezone), worker: worker?.display_name, company: worker?.company, workerType: worker?.worker_type, checkInLocal: formatLocalDateTime(row.check_in_time, snapshot.timezone), checkOutLocal: row.check_out_time ? formatLocalDateTime(row.check_out_time, snapshot.timezone) : "", checkInUtc: row.check_in_time, checkOutUtc: row.check_out_time || "", hours: row.duration_seconds ? Number((Number(row.duration_seconds)/3600).toFixed(2)) : "", manualEntry: row.is_manual_entry ? "Yes" : "No", workSummary: row.daily_work_summary || "", inPhoto: checkInEvent?.record_code || "", outPhoto: checkOutEvent?.record_code || "" });
       added.getCell("workSummary").alignment = { vertical: "top", wrapText: true };
     }
     sheet.getRow(1).eachCell((cell) => { cell.font = { bold: true, color: { argb: "FFFFFFFF" } }; cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0F4C3A" } }; cell.alignment = { vertical: "middle" }; });
     sheet.getRow(1).height = 26;
-    sheet.autoFilter = { from: "A1", to: "U1" };
+    sheet.autoFilter = { from: "A1", to: "T1" };
     sheet.eachRow((row, index) => { if (index > 1 && index % 2 === 1) row.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF3F7F4" } }; }); });
 
     const summary = workbook.addWorksheet("Summary");
