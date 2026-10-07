@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         company: params.get("company"), start: params.get("start"), end: params.get("end"), status: params.get("status"),
       }),
       admin.from("profiles").select("id,display_name,username,company,status").eq("role", "WORKER").eq("status", "ACTIVE").order("display_name"),
-      admin.from("projects").select("id,project_name,project_code,customer_name,timezone,status").eq("status", "ACTIVE").order("project_name"),
+      admin.from("projects").select("id,project_name,project_code,customer_name,site_name,timezone,status").eq("status", "ACTIVE").order("project_name"),
     ]);
     if (users.error) throw users.error;
     if (projects.error) throw projects.error;
