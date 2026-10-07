@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const activeOnly = new URL(request.url).searchParams.get("active_only") === "true";
     const admin = createSupabaseAdminClient();
     let usersQuery = admin.from("profiles").select("id,username,display_name,company,worker_type,status").eq("role", "WORKER");
-    let projectsQuery = admin.from("projects").select("id,project_code,project_name,status");
+    let projectsQuery = admin.from("projects").select("id,project_code,project_name,customer_name,site_name,timezone,status");
     if (activeOnly) {
       usersQuery = usersQuery.eq("status", "ACTIVE");
       projectsQuery = projectsQuery.eq("status", "ACTIVE");

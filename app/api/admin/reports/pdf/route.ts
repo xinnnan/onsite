@@ -29,6 +29,8 @@ const styles = StyleSheet.create({
   stats: { display: "flex", flexDirection: "row", gap: 6 }, stat: { flex: 1, border: "1 solid #dce5e0", padding: 8 }, statValue: { fontSize: 15, fontWeight: 700, marginTop: 4 },
   table: { borderTop: "1 solid #cbd8d2" }, row: { display: "flex", flexDirection: "row", borderBottom: "1 solid #e2e9e5", minHeight: 22, alignItems: "center" },
   header: { backgroundColor: "#edf4f0", fontWeight: 700 }, cDate: { width: "16%", padding: 4 }, cWorker: { width: "28%", padding: 4 }, cTime: { width: "19%", padding: 4 }, cHours: { width: "18%", padding: 4 },
+  aDate: { width: "14%", padding: 4 }, aWorker: { width: "21%", padding: 4 }, aProject: { width: "26%", padding: 4 }, aTime: { width: "13%", padding: 4 }, aHours: { width: "13%", padding: 4 },
+  rCustomer: { width: "18%", padding: 4 }, rProject: { width: "25%", padding: 4 }, rSite: { width: "21%", padding: 4 }, rZone: { width: "18%", padding: 4 }, rDays: { width: "8%", padding: 4 }, rHours: { width: "10%", padding: 4 },
   pWorker: { width: "36%", padding: 4 }, pCompany: { width: "34%", padding: 4 }, pDays: { width: "15%", padding: 4 }, pHours: { width: "15%", padding: 4 },
   summaryDate: { width: "16%", padding: 5 }, summaryWorker: { width: "24%", padding: 5 }, summaryText: { width: "60%", padding: 5, lineHeight: 1.55 },
   photoPage: { padding: 34, fontSize: 8, color: "#243b35", fontFamily: "NotoSansSC" }, photoHeading: { fontSize: 13, fontWeight: 700, color: "#0f4c3a" },
@@ -42,7 +44,8 @@ export async function POST(request: Request) {
   try {
     const { demo } = await requireAuth("ADMIN");
     const body = await request.json() as { project_id?: string; worker_id?: string; start?: string; end?: string; include_photos?: boolean };
-    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME, worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_timezone_snapshot: "America/Indiana/Indianapolis", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null } }], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, selectedWorker: body.worker_id ? { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME } : null, companyName: DEMO_COMPANY_NAME, summary: { total_personnel: 1,total_work_sessions:1,total_work_hours:9.18,total_work_days:1,incomplete_sessions:0 }, personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const report = demo ? { sessions: [{ id: "demo-session", user_id: "demo-worker", project_id: "demo-project", check_in_time: "2026-08-17T12:03:00Z", check_out_time: "2026-08-17T21:14:00Z", duration_seconds: 33060, status: "COMPLETE", daily_work_summary: "完成 6 台机器人的例行检查，更换 2 个传感器并测试运行状态正常。", worker: { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME, worker_type: "EMPLOYEE" }, project: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, check_in_event: { record_code: "ATT-DEMO-IN", project_timezone_snapshot: "America/Indiana/Indianapolis", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null }, check_out_event: { record_code: "ATT-DEMO-OUT", project_latitude_snapshot: 39.780625, project_longitude_snapshot: -86.045711, watermarked_photo_path: null } }], selectedProject: { customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address_line_1: "8677 Impact Court", city: "Indianapolis", state: "IN", postal_code: "46219", timezone: "America/Indiana/Indianapolis", map_image_path: null, latitude: 39.780625, longitude: -86.045711 }, selectedWorker: body.worker_id ? { id: "demo-worker", display_name: "John Smith", company: DEMO_COMPANY_NAME } : null, companyName: DEMO_COMPANY_NAME, projects: [{ project_id: "demo-project", customer_name: "adidas", project_name: "adidas Indy AMR", site_name: "Indy Manufacturing Facility", address: "8677 Impact Court, Indianapolis, IN 46219", timezone: "America/Indiana/Indianapolis", days_on_site: 1, work_sessions: 1, hours: 9.18 }], summary: { total_personnel: 1,total_work_sessions:1,total_work_hours:9.18,total_work_days:1,incomplete_sessions:0 }, personnel: [{ name: "John Smith", company: DEMO_COMPANY_NAME, days_on_site: 1, hours: 9.18 }] } : await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const allProjects = !body.project_id;
     const first = report.sessions[0];
     const snapshot = first ? getSessionSnapshot(first) : null;
     const selectedProject = report.selectedProject;
@@ -59,11 +62,23 @@ export async function POST(request: Request) {
     const projectCoordinates = formatProjectCoordinates(project.latitude, project.longitude);
     const firstWorker = first ? (Array.isArray(first.worker) ? first.worker[0] : first.worker) : null;
     const workerName = body.worker_id ? report.selectedWorker?.display_name || firstWorker?.display_name || "Selected-Personnel" : "All-Personnel";
-    const reportFilename = buildPdfReportFilename({ siteName: project.siteName || project.projectName, start: body.start, end: body.end, workerName });
-    const projectMapUrl = await loadPrivateAssetAsJpegDataUri("project-assets", project.mapPath);
+    const reportFilename = buildPdfReportFilename({ siteName: allProjects ? "All-Projects" : project.siteName || project.projectName, start: body.start, end: body.end, workerName });
+    const projectMapUrl = allProjects ? null : await loadPrivateAssetAsJpegDataUri("project-assets", project.mapPath);
+    const customerNames = [...new Set(report.projects.map((row) => row.customer_name).filter(Boolean))].join(", ") || "-";
+    const rosterRows = report.projects.map((row) => h(View, { style: styles.row, key: `project-${row.project_id}`, wrap: false },
+      h(Text, { style: styles.rCustomer }, row.customer_name || "-"), h(Text, { style: styles.rProject }, row.project_name || "-"),
+      h(Text, { style: styles.rSite }, row.site_name || "-"), h(Text, { style: styles.rZone }, row.timezone),
+      h(Text, { style: styles.rDays }, String(row.days_on_site)), h(Text, { style: styles.rHours }, String(row.hours))));
     const tableRows = report.sessions.slice(0, 250).map((row) => {
       const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
       const timezone = getSessionTimeZone(row);
+      if (allProjects) return h(View, { style: styles.row, key: row.id },
+        h(Text, { style: styles.aDate }, formatLocalDate(row.check_in_time, timezone)),
+        h(Text, { style: styles.aWorker }, worker?.display_name || ""),
+        h(Text, { style: styles.aProject }, getSessionSnapshot(row).projectName || "-"),
+        h(Text, { style: styles.aTime }, formatLocalTime(row.check_in_time, timezone)),
+        h(Text, { style: styles.aTime }, row.check_out_time ? formatLocalTime(row.check_out_time, timezone) : "-"),
+        h(Text, { style: styles.aHours }, row.duration_seconds ? (Number(row.duration_seconds)/3600).toFixed(2) : "-"));
       return h(View, { style: styles.row, key: row.id },
         h(Text, { style: styles.cDate }, formatLocalDate(row.check_in_time, timezone)),
         h(Text, { style: styles.cWorker }, worker?.display_name || ""),
@@ -79,7 +94,7 @@ export async function POST(request: Request) {
       const timezone = getSessionTimeZone(row);
       return h(View, { style: styles.row, key: `summary-${row.id}`, wrap: false },
         h(Text, { style: styles.summaryDate }, formatLocalDate(row.check_in_time, timezone)),
-        h(Text, { style: styles.summaryWorker }, worker?.display_name || ""),
+        h(Text, { style: styles.summaryWorker }, allProjects ? `${worker?.display_name || ""}\n${getSessionSnapshot(row).projectName}` : worker?.display_name || ""),
         h(Text, { style: styles.summaryText }, row.daily_work_summary || ""));
     });
     const photoEligibleSessions = report.sessions.filter((row) => {
@@ -113,6 +128,9 @@ export async function POST(request: Request) {
       h(Page, { size: "A4", style: styles.page },
         h(Text, { style: styles.brand }, report.companyName),
         h(Text, { style: styles.title }, "SITE ATTENDANCE REPORT"), h(View, { style: styles.rule }),
+        allProjects ? h(View, { style: styles.metadata },
+          h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Personnel"),h(Text,{style:styles.value},body.worker_id ? workerName : "All personnel"),h(Text,{style:styles.label},"Customers"),h(Text,{style:styles.value},customerNames)),
+          h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Projects"),h(Text,{style:styles.value},`All projects (${report.projects.length})`),h(Text,{style:styles.label},"Reporting period (project local dates)"),h(Text,{style:styles.value},`${body.start || "All"} - ${body.end || "All"}`))) :
         h(View, { style: styles.metadata },
           h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Customer"),h(Text,{style:styles.value},project.customerName),h(Text,{style:styles.label},"Project"),h(Text,{style:styles.value},project.projectName)),
           h(View, { style: styles.metaBlock }, h(Text,{style:styles.label},"Site"),h(Text,{style:styles.value},project.siteName),h(Text,{style:styles.label},"Address"),h(Text,{style:styles.value},project.address),h(Text,{style:styles.label},"Project reference coordinates"),h(Text,{style:styles.value},projectCoordinates || "-"),h(Text,{style:styles.label},"Project time zone"),h(Text,{style:styles.value},project.timezone),h(Text,{style:styles.label},"Reporting period (local dates)"),h(Text,{style:styles.value},`${body.start || "All"} - ${body.end || "All"}`))),
@@ -124,9 +142,16 @@ export async function POST(request: Request) {
         h(View,{style:styles.table},
           h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.pWorker},"Worker"),h(Text,{style:styles.pCompany},"Company"),h(Text,{style:styles.pDays},"Days"),h(Text,{style:styles.pHours},"Hours")),
           ...personnelRows),
+        allProjects ? h(React.Fragment, null,
+          h(Text,{style:styles.section},"PROJECTS COVERED"),
+          h(View,{style:styles.table},
+            h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.rCustomer},"Customer"),h(Text,{style:styles.rProject},"Project"),h(Text,{style:styles.rSite},"Site"),h(Text,{style:styles.rZone},"Time zone"),h(Text,{style:styles.rDays},"Days"),h(Text,{style:styles.rHours},"Hours")),
+            ...rosterRows)) : null,
         h(Text,{style:styles.section},"DAILY ATTENDANCE"),
         h(View,{style:styles.table},
-          h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Local date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In (local)"),h(Text,{style:styles.cTime},"Out (local)"),h(Text,{style:styles.cHours},"Hours")),
+          allProjects
+            ? h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.aDate},"Local date"),h(Text,{style:styles.aWorker},"Worker"),h(Text,{style:styles.aProject},"Project"),h(Text,{style:styles.aTime},"In (local)"),h(Text,{style:styles.aTime},"Out (local)"),h(Text,{style:styles.aHours},"Hours"))
+            : h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Local date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In (local)"),h(Text,{style:styles.cTime},"Out (local)"),h(Text,{style:styles.cHours},"Hours")),
           ...tableRows),
         summaryRows.length ? h(React.Fragment, null,
           h(Text,{style:styles.section},"DAILY WORK SUMMARIES"),

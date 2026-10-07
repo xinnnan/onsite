@@ -6,9 +6,10 @@ import {
   Activity, AlertTriangle, ArrowDownToLine, Bell, Building2, CalendarDays, CheckCircle2,
   ChevronDown, ChevronRight, ClipboardCheck, Clock3, FileBarChart, FileClock, FileText,
   KeyRound, LayoutDashboard, LoaderCircle, LocateFixed, MapPin, Menu, MoreHorizontal, Plus,
-  Search, SlidersHorizontal, Trash2, Upload, Users, UserRoundCheck, X,
+  Save, Search, SlidersHorizontal, Table2, Trash2, Undo2, Upload, Users, UserRoundCheck, Wand2, X,
+  CalendarRange,
 } from "lucide-react";
-import { DragEvent, FormEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ClipboardEvent, DragEvent, FormEvent, Fragment, KeyboardEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { intlLocales, type Locale, useLanguage } from "@/app/lib/use-language";
@@ -16,8 +17,13 @@ import { formatProjectCoordinates } from "@/lib/project-coordinates";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
 import { TIME_ZONE_OPTIONS, formatLocalDate, formatLocalTime, getSessionTimeZone, toZonedDateTimeLocalInput } from "@/lib/timezones";
 import { isWorkSummaryValid, WORK_SUMMARY_LIMITS } from "@/lib/work-summary";
+import {
+  addShiftRow, applyPastedTimes, buildSaveRequests, buildTimesheetRows, fillBlankRows, isRowDirty, isWeekend, mergeFailedDrafts,
+  normalizeTimeInput, removeShiftRow, rowDurationSeconds, rowTimeZone, validateTimesheetRows,
+  type TimesheetIssue, type TimesheetRow, type TimesheetSessionInput,
+} from "@/lib/timesheet";
 
-export type AdminView = "dashboard" | "users" | "projects" | "project-detail" | "assignments" | "attendance" | "attendance-detail" | "reports" | "audit";
+export type AdminView = "dashboard" | "users" | "projects" | "project-detail" | "assignments" | "attendance" | "attendance-detail" | "attendance-timesheet" | "reports" | "audit";
 type Row = Record<string, any>;
 type ModalState = { type: "worker" | "project" | "edit-worker" | "reset" | "correction" | "manual-attendance" | "delete-attendance"; record?: Row } | null;
 
@@ -99,6 +105,20 @@ const assignmentText = {
   ko: { bulkTitle:"프로젝트 일괄 배정", bulkDescription:"여러 인력과 프로젝트를 선택하여 모든 조합을 한 번에 업데이트합니다.", selectProjects:"프로젝트 선택", selectPeople:"인력 선택", searchProjects:"프로젝트명 또는 코드 검색…", searchPeople:"이름, 사용자명 또는 회사 검색…", selectResults:"현재 결과 전체 선택", clear:"지우기", selected:"선택됨", noResults:"일치하는 결과가 없습니다", assign:"일괄 추가", remove:"일괄 제거", saving:"처리 중…", added:"일괄 배정이 완료되었습니다", removed:"일괄 제거가 완료되었습니다", failed:"일괄 작업에 실패했습니다. 다시 시도하세요.", quickTitle:"단일 프로젝트 빠른 조정", summary:(people:number,projects:number)=>`${people}명 × 프로젝트 ${projects}개 · 배정 ${people*projects}건` },
 } as const;
 
+const reportScopeText = {
+  zh: { allProjects:"全部项目", projectsCovered:"涉及项目", projectCount:(count:number)=>`全部项目（${count}）`, customers:"客户" },
+  en: { allProjects:"All projects", projectsCovered:"Projects covered", projectCount:(count:number)=>`All projects (${count})`, customers:"Customers" },
+  es: { allProjects:"Todos los proyectos", projectsCovered:"Proyectos incluidos", projectCount:(count:number)=>`Todos los proyectos (${count})`, customers:"Clientes" },
+  ko: { allProjects:"전체 프로젝트", projectsCovered:"포함된 프로젝트", projectCount:(count:number)=>`전체 프로젝트 (${count})`, customers:"고객사" },
+} as const;
+
+const timesheetText = {
+  zh: { records:"考勤记录", timesheet:"工时表", title:"个人工时表", hint:"选择人员和任意日期范围，列出每一天。像 Excel 一样输入签到/签退（8、830、17:30、5:30pm），或直接从 Excel 粘贴。时间按各项目当地时区填写。", load:"加载工时表", choose:"选择人员和日期范围后加载工时表。", defaultProject:"新记录默认项目", defaultIn:"默认签到", defaultOut:"默认签退", fillBlank:"填充空白日期", weekdaysOnly:"仅工作日", projectSite:"项目 / 现场", in:"签到", out:"签退", entry:"记录类型", nextDay:"次日", addShift:"当天再添加一个班次", removeShift:"移除此未保存行", openRecord:"打开记录", newEntry:"新补录", edited:"已修改", workerPunch:"人员打卡", locked:"跨越超过一天，请在记录详情页修改", unsaved:(count:number)=>`${count} 处未保存修改`, reason:"修改原因（写入审计日志）", defaultReason:"管理员通过工时表人工核实", save:"保存修改", saving:(done:number,total:number)=>`正在保存 ${done} / ${total}…`, discard:"放弃修改", saved:(count:number)=>`已保存 ${count} 行`, partial:(saved:number,failed:number)=>`已保存 ${saved} 行，${failed} 行需要处理`, confirmDiscard:"工时表有未保存的修改，确定放弃吗？", total:"合计", daysWorked:"出勤天数", fixFirst:(count:number)=>`保存前请先修正 ${count} 行`, saveFailed:"该行保存失败", issues:{ BOTH_TIMES_REQUIRED:"请填写签到和签退", CHECK_IN_REQUIRED:"签到时间不能为空", DELETE_ON_RECORD_PAGE:"如需删除，请打开记录详情", INVALID_TIME:"请输入如 8:00 或 5:30pm 的时间", SAME_TIME:"签到和签退不能相同", PROJECT_REQUIRED:"请选择进行中的项目", OVERLAP:"与该日期的记录时间重叠：" } },
+  en: { records:"Records", timesheet:"Timesheet", title:"Personal timesheet", hint:"Pick a person and any date range to list every day. Type In/Out like a spreadsheet (8, 830, 17:30, 5:30pm) or paste straight from Excel. Times use each project's local time zone.", load:"Load timesheet", choose:"Choose a person and date range, then load the timesheet.", defaultProject:"Default project for new entries", defaultIn:"Default in", defaultOut:"Default out", fillBlank:"Fill blank days", weekdaysOnly:"Weekdays only", projectSite:"Project / Site", in:"In", out:"Out", entry:"Entry", nextDay:"Next day", addShift:"Add another shift on this day", removeShift:"Remove this unsaved row", openRecord:"Open record", newEntry:"New entry", edited:"Edited", workerPunch:"Worker check-in", locked:"Spans more than a day — edit it on the record page", unsaved:(count:number)=>`${count} unsaved ${count===1?"change":"changes"}`, reason:"Reason (saved to the audit log)", defaultReason:"Verified manually via timesheet", save:"Save changes", saving:(done:number,total:number)=>`Saving ${done} / ${total}…`, discard:"Discard changes", saved:(count:number)=>`${count} ${count===1?"row":"rows"} saved`, partial:(saved:number,failed:number)=>`${saved} saved, ${failed} need attention`, confirmDiscard:"You have unsaved timesheet changes. Discard them?", total:"Total", daysWorked:"Days worked", fixFirst:(count:number)=>`Fix ${count} ${count===1?"row":"rows"} before saving`, saveFailed:"This row could not be saved", issues:{ BOTH_TIMES_REQUIRED:"Enter both In and Out", CHECK_IN_REQUIRED:"In time is required", DELETE_ON_RECORD_PAGE:"To delete, open the record", INVALID_TIME:"Use a time like 8:00 or 5:30pm", SAME_TIME:"In and Out cannot match", PROJECT_REQUIRED:"Choose an active project", OVERLAP:"Overlaps the record on " } },
+  es: { records:"Registros", timesheet:"Hoja de horas", title:"Hoja de horas personal", hint:"Elige una persona y cualquier rango de fechas para ver todos los días. Escribe entrada/salida como en una hoja de cálculo (8, 830, 17:30, 5:30pm) o pega desde Excel. Las horas usan la zona horaria local de cada proyecto.", load:"Cargar hoja", choose:"Elige una persona y un rango de fechas y carga la hoja de horas.", defaultProject:"Proyecto predeterminado", defaultIn:"Entrada predeterminada", defaultOut:"Salida predeterminada", fillBlank:"Rellenar días vacíos", weekdaysOnly:"Solo días laborables", projectSite:"Proyecto / Sitio", in:"Entrada", out:"Salida", entry:"Tipo", nextDay:"Día siguiente", addShift:"Añadir otro turno este día", removeShift:"Quitar esta fila sin guardar", openRecord:"Abrir registro", newEntry:"Nuevo registro", edited:"Editado", workerPunch:"Marcaje del personal", locked:"Dura más de un día: edítalo en la página del registro", unsaved:(count:number)=>`${count} ${count===1?"cambio":"cambios"} sin guardar`, reason:"Motivo (se guarda en auditoría)", defaultReason:"Verificado manualmente en la hoja de horas", save:"Guardar cambios", saving:(done:number,total:number)=>`Guardando ${done} / ${total}…`, discard:"Descartar cambios", saved:(count:number)=>`${count} ${count===1?"fila guardada":"filas guardadas"}`, partial:(saved:number,failed:number)=>`${saved} guardadas, ${failed} requieren atención`, confirmDiscard:"Hay cambios sin guardar en la hoja de horas. ¿Descartarlos?", total:"Total", daysWorked:"Días trabajados", fixFirst:(count:number)=>`Corrige ${count} ${count===1?"fila":"filas"} antes de guardar`, saveFailed:"No se pudo guardar esta fila", issues:{ BOTH_TIMES_REQUIRED:"Indica entrada y salida", CHECK_IN_REQUIRED:"La entrada es obligatoria", DELETE_ON_RECORD_PAGE:"Para eliminar, abre el registro", INVALID_TIME:"Usa una hora como 8:00 o 5:30pm", SAME_TIME:"Entrada y salida no pueden coincidir", PROJECT_REQUIRED:"Elige un proyecto activo", OVERLAP:"Se superpone con el registro del " } },
+  ko: { records:"기록", timesheet:"근무표", title:"개인 근무표", hint:"인력과 원하는 날짜 범위를 선택하면 모든 날짜가 표시됩니다. 스프레드시트처럼 출근/퇴근을 입력하거나(8, 830, 17:30, 5:30pm) Excel에서 바로 붙여 넣으세요. 시간은 각 프로젝트의 현지 시간대를 사용합니다.", load:"근무표 불러오기", choose:"인력과 날짜 범위를 선택한 후 근무표를 불러오세요.", defaultProject:"새 기록 기본 프로젝트", defaultIn:"기본 출근", defaultOut:"기본 퇴근", fillBlank:"빈 날짜 채우기", weekdaysOnly:"평일만", projectSite:"프로젝트 / 현장", in:"출근", out:"퇴근", entry:"유형", nextDay:"다음 날", addShift:"이 날짜에 근무 추가", removeShift:"저장되지 않은 행 제거", openRecord:"기록 열기", newEntry:"새 기록", edited:"수정됨", workerPunch:"인력 출퇴근", locked:"하루 이상 지속됨 — 기록 페이지에서 수정하세요", unsaved:(count:number)=>`저장되지 않은 변경 ${count}개`, reason:"사유(감사 로그에 저장)", defaultReason:"근무표에서 관리자가 직접 확인함", save:"변경 저장", saving:(done:number,total:number)=>`저장 중 ${done} / ${total}…`, discard:"변경 취소", saved:(count:number)=>`${count}개 행 저장됨`, partial:(saved:number,failed:number)=>`${saved}개 저장, ${failed}개 확인 필요`, confirmDiscard:"저장되지 않은 근무표 변경이 있습니다. 취소할까요?", total:"합계", daysWorked:"근무일", fixFirst:(count:number)=>`저장하기 전에 ${count}개 행을 수정하세요`, saveFailed:"이 행을 저장하지 못했습니다", issues:{ BOTH_TIMES_REQUIRED:"출근과 퇴근을 모두 입력하세요", CHECK_IN_REQUIRED:"출근 시간은 필수입니다", DELETE_ON_RECORD_PAGE:"삭제하려면 기록을 여세요", INVALID_TIME:"8:00 또는 5:30pm 형식으로 입력하세요", SAME_TIME:"출근과 퇴근이 같을 수 없습니다", PROJECT_REQUIRED:"진행 중인 프로젝트를 선택하세요", OVERLAP:"다음 날짜의 기록과 겹칩니다: " } },
+} as const;
+
 function one(value: any) { return Array.isArray(value) ? value[0] : value; }
 function initials(name = "") { return name.split(/\s+/).map((part) => part[0]).join("").slice(0,2).toUpperCase() || "—"; }
 function resolveIntlLocale(locale: string) { return locale in intlLocales ? intlLocales[locale as Locale] : locale; }
@@ -155,7 +175,7 @@ export default function AdminShell({ view }: { view: AdminView }) {
   const [attendanceEndpoint,setAttendanceEndpoint] = useState("/api/admin/attendance");
   const loadErrorRef = useRef(t.loadError);
   const id = pathname.split("/").filter(Boolean).at(-1) || "";
-  const activeNav = view === "project-detail" ? "projects" : view === "attendance-detail" ? "attendance" : view;
+  const activeNav = view === "project-detail" ? "projects" : view === "attendance-detail" || view === "attendance-timesheet" ? "attendance" : view;
   const selectedAttendanceWorkerId = useMemo(() => new URLSearchParams(attendanceEndpoint.split("?")[1]||"").get("worker")||"",[attendanceEndpoint]);
 
   const endpoint = useMemo(() => {
@@ -165,6 +185,7 @@ export default function AdminShell({ view }: { view: AdminView }) {
     if (view === "project-detail") return `/api/admin/projects/${id}`;
     if (view === "assignments") return "/api/admin/project-assignments?active_only=true";
     if (view === "reports") return "/api/admin/project-assignments";
+    if (view === "attendance-timesheet") return "/api/admin/project-assignments?active_only=true";
     if (view === "attendance") return attendanceEndpoint;
     if (view === "attendance-detail") return `/api/admin/attendance/${id}`;
     return "/api/admin/audit-logs";
@@ -217,6 +238,7 @@ export default function AdminShell({ view }: { view: AdminView }) {
           onCorrect={(record)=>setModal({type:"correction",record:{...record,projects:data.demo?demoProjects:(data.projects||[])}})}
           onDelete={(record)=>setModal({type:"delete-attendance",record})}
         />}
+        {view==="attendance-timesheet"&&<TimesheetView data={data} loading={loading} error={error} load={load} t={t} locale={locale} flash={flash}/>}
         {view==="reports"&&<ReportsView data={data} loading={loading} error={error} load={load} t={t} locale={locale} flash={flash}/>}
         {view==="audit"&&<AuditView data={data} loading={loading} error={error} load={load} t={t} locale={locale}/>}
       </div></main>
@@ -347,7 +369,223 @@ function AssignmentsView({data,loading,error,load,t,locale,flash}:{data:Row;load
   return <PageState loading={loading} error={error} empty={!users.length||!projects.length} retry={load} t={t}><article className="admin-card bulk-assignment-card"><div className="bulk-assignment-heading"><div className="report-icon"><UserRoundCheck size={22}/></div><div><h2>{copy.bulkTitle}</h2><p>{copy.bulkDescription}</p></div></div><div className="bulk-assignment-grid"><section className="bulk-picker"><header><div><strong>{copy.selectProjects}</strong><span>{copy.selected}: {selectedProjectIds.length}</span></div><div><button type="button" onClick={()=>toggleAllVisible(filteredProjects,selectedProjectIds,setSelectedProjects)}>{copy.selectResults}</button><button type="button" onClick={()=>setSelectedProjects([])} disabled={!selectedProjectIds.length}>{copy.clear}</button></div></header><label className="bulk-search"><Search size={16}/><input value={projectSearch} onChange={(event)=>setProjectSearch(event.target.value)} placeholder={copy.searchProjects} aria-label={copy.searchProjects}/></label><div className="bulk-choice-list">{filteredProjects.map((project:Row)=>{const selected=selectedProjectIds.includes(project.id);const assignedCount=activeAssignments.filter((assignment:Row)=>assignment.project_id===project.id).length;return <button type="button" className={selected?"selected":""} aria-pressed={selected} key={project.id} onClick={()=>toggleSelection(project.id,selectedProjectIds,setSelectedProjects)}><span className="bulk-choice-mark">{selected?<CheckCircle2 size={16}/>:<Plus size={15}/>}</span><div><strong>{project.project_name}</strong><small>{project.project_code} · {assignedCount} {t.assignedWorkers}</small></div></button>})}{!filteredProjects.length&&<p className="bulk-no-results">{copy.noResults}</p>}</div></section><section className="bulk-picker"><header><div><strong>{copy.selectPeople}</strong><span>{copy.selected}: {selectedPeopleIds.length}</span></div><div><button type="button" onClick={()=>toggleAllVisible(filteredPeople,selectedPeopleIds,setSelectedPeople)}>{copy.selectResults}</button><button type="button" onClick={()=>setSelectedPeople([])} disabled={!selectedPeopleIds.length}>{copy.clear}</button></div></header><label className="bulk-search"><Search size={16}/><input value={peopleSearch} onChange={(event)=>setPeopleSearch(event.target.value)} placeholder={copy.searchPeople} aria-label={copy.searchPeople}/></label><div className="bulk-choice-list">{filteredPeople.map((user:Row)=>{const selected=selectedPeopleIds.includes(user.id);return <button type="button" className={selected?"selected":""} aria-pressed={selected} key={user.id} onClick={()=>toggleSelection(user.id,selectedPeopleIds,setSelectedPeople)}><span className="bulk-choice-mark">{selected?<CheckCircle2 size={16}/>:<Plus size={15}/>}</span><span className="person-avatar green">{initials(user.display_name)}</span><div><strong>{user.display_name}</strong><small>{[user.company,user.username].filter(Boolean).join(" · ")}</small></div></button>})}{!filteredPeople.length&&<p className="bulk-no-results">{copy.noResults}</p>}</div></section></div><footer className="bulk-assignment-footer"><div aria-live="polite"><strong>{copy.summary(selectedPeopleIds.length,selectedProjectIds.length)}</strong><span>{selectedPeopleIds.length&&selectedProjectIds.length?selectedProjects.map((id)=>projects.find((project:Row)=>project.id===id)?.project_name).filter(Boolean).slice(0,3).join(" · "):copy.bulkDescription}</span></div><div><button type="button" className="secondary-button bulk-remove" disabled={batchSaving||!selectedPeopleIds.length||!selectedProjectIds.length} onClick={()=>updateBatch(false)}><X size={16}/>{batchSaving?copy.saving:copy.remove}</button><button type="button" className="admin-primary" disabled={batchSaving||!selectedPeopleIds.length||!selectedProjectIds.length} onClick={()=>updateBatch(true)}>{batchSaving?<LoaderCircle className="spin" size={16}/>:<Plus size={16}/>} {batchSaving?copy.saving:copy.assign}</button></div></footer></article><section className="quick-assignment-section"><div className="quick-assignment-heading"><div><h2>{copy.quickTitle}</h2><p>{t.project}</p></div><div className="assignment-selector"><label>{t.project}<select value={activeProjectId} onChange={(event)=>setProjectId(event.target.value)}>{projects.map((project:Row)=><option value={project.id} key={project.id}>{project.project_name}</option>)}</select></label></div></div><div className="assignment-grid"><article className="admin-card assignment-panel"><div className="card-heading"><div><p>{t.availableWorkers}</p><span>{users.length}</span></div></div><div className="assignment-list">{users.map((user:Row)=>{const assigned=activeAssignments.some((assignment:Row)=>assignment.user_id===user.id&&assignment.project_id===activeProjectId);return <button type="button" key={user.id} onClick={()=>toggle(user.id,!assigned)}><span className="person-avatar green">{initials(user.display_name)}</span><div><strong>{user.display_name}</strong><small>{user.company}</small></div>{assigned?<X size={16}/>:<Plus size={17}/>}</button>})}</div></article><article className="admin-card assignment-panel"><div className="card-heading"><div><p>{t.assignedWorkers}</p><span>{activeAssignments.filter((assignment:Row)=>assignment.project_id===activeProjectId).length}</span></div></div><div className="assignment-list">{activeAssignments.filter((assignment:Row)=>assignment.project_id===activeProjectId).map((assignment:Row)=>{const user=one(assignment.user)||{};return <button type="button" key={assignment.id} onClick={()=>toggle(assignment.user_id,false)}><span className="person-avatar green">{initials(user.display_name)}</span><div><strong>{user.display_name}</strong><small>{user.company}</small></div><X size={16}/></button>})}</div></article></div></section></PageState>
 }
 
-function AttendanceView({data,loading,error,load,t,locale,filterEndpoint}:{data:Row;loading:boolean;error:string;load:(u?:string)=>void;t:T;locale:string;filterEndpoint:string}) { const sessions=data.demo?demoSessions:(data.sessions||[]);const projects=data.demo?demoProjects:(data.projects||[]);const users=data.demo?demoPeople:(data.users||[]);const customers=[...new Set(projects.map((project:Row)=>project.customer_name).filter(Boolean))];const companies=[...new Set(users.map((user:Row)=>user.company).filter(Boolean))];const all=locale==="zh"?"全部":locale==="es"?"Todos":locale==="ko"?"전체":"All";const filters=new URLSearchParams(filterEndpoint.split("?")[1]||"");function filter(event:FormEvent<HTMLFormElement>){event.preventDefault();const values=new FormData(event.currentTarget);const query=new URLSearchParams();values.forEach((value,key)=>{if(value)query.set(key,String(value))});load(`/api/admin/attendance?${query}`)}return <><form key={filterEndpoint} className="filter-grid attendance-filters" onSubmit={filter}><label>{t.customer}<select name="customer" defaultValue={filters.get("customer")||""}><option value="">{all}</option>{customers.map((customer)=><option key={String(customer)}>{String(customer)}</option>)}</select></label><label>{t.project}<select name="project" defaultValue={filters.get("project")||""}><option value="">{all}</option>{projects.map((project:Row)=><option key={project.id} value={project.id}>{project.project_name}</option>)}</select></label><label>{t.worker}<select name="worker" defaultValue={filters.get("worker")||""}><option value="">{all}</option>{users.map((user:Row)=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label><label>{t.company}<select name="company" defaultValue={filters.get("company")||""}><option value="">{all}</option>{companies.map((company)=><option key={String(company)}>{String(company)}</option>)}</select></label><label>{t.startDate}<input name="start" type="date" defaultValue={filters.get("start")||""}/></label><label>{t.endDate}<input name="end" type="date" defaultValue={filters.get("end")||""}/></label><label>{t.status}<select name="status" defaultValue={filters.get("status")||""}><option value="">{all}</option>{["OPEN","COMPLETE","MISSING_CHECKOUT","LONG_SESSION","MANUALLY_CORRECTED"].map((status)=><option key={status}>{status}</option>)}</select></label><button><SlidersHorizontal size={16}/>{t.filter}</button></form><PageState loading={loading} error={error} empty={!sessions.length} retry={()=>load()} t={t}><SessionTable sessions={sessions} t={t} locale={locale}/></PageState></> }
+function AttendanceView({data,loading,error,load,t,locale,filterEndpoint}:{data:Row;loading:boolean;error:string;load:(u?:string)=>void;t:T;locale:string;filterEndpoint:string}) { const sessions=data.demo?demoSessions:(data.sessions||[]);const projects=data.demo?demoProjects:(data.projects||[]);const users=data.demo?demoPeople:(data.users||[]);const customers=[...new Set(projects.map((project:Row)=>project.customer_name).filter(Boolean))];const companies=[...new Set(users.map((user:Row)=>user.company).filter(Boolean))];const all=locale==="zh"?"全部":locale==="es"?"Todos":locale==="ko"?"전체":"All";const filters=new URLSearchParams(filterEndpoint.split("?")[1]||"");function filter(event:FormEvent<HTMLFormElement>){event.preventDefault();const values=new FormData(event.currentTarget);const query=new URLSearchParams();values.forEach((value,key)=>{if(value)query.set(key,String(value))});load(`/api/admin/attendance?${query}`)}return <><AttendanceTabs active="records" locale={locale}/><form key={filterEndpoint} className="filter-grid attendance-filters" onSubmit={filter}><label>{t.customer}<select name="customer" defaultValue={filters.get("customer")||""}><option value="">{all}</option>{customers.map((customer)=><option key={String(customer)}>{String(customer)}</option>)}</select></label><label>{t.project}<select name="project" defaultValue={filters.get("project")||""}><option value="">{all}</option>{projects.map((project:Row)=><option key={project.id} value={project.id}>{project.project_name}</option>)}</select></label><label>{t.worker}<select name="worker" defaultValue={filters.get("worker")||""}><option value="">{all}</option>{users.map((user:Row)=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label><label>{t.company}<select name="company" defaultValue={filters.get("company")||""}><option value="">{all}</option>{companies.map((company)=><option key={String(company)}>{String(company)}</option>)}</select></label><label>{t.startDate}<input name="start" type="date" defaultValue={filters.get("start")||""}/></label><label>{t.endDate}<input name="end" type="date" defaultValue={filters.get("end")||""}/></label><label>{t.status}<select name="status" defaultValue={filters.get("status")||""}><option value="">{all}</option>{["OPEN","COMPLETE","MISSING_CHECKOUT","LONG_SESSION","MANUALLY_CORRECTED"].map((status)=><option key={status}>{status}</option>)}</select></label><button><SlidersHorizontal size={16}/>{t.filter}</button></form><PageState loading={loading} error={error} empty={!sessions.length} retry={()=>load()} t={t}><SessionTable sessions={sessions} t={t} locale={locale}/></PageState></> }
+
+function AttendanceTabs({active,locale,canLeave}:{active:"records"|"timesheet";locale:string;canLeave?:()=>boolean}) {
+  const copy=timesheetText[locale as Locale]||timesheetText.en;
+  const tabs=[["records","/admin/attendance",ClipboardCheck,copy.records],["timesheet","/admin/attendance/timesheet",Table2,copy.timesheet]] as const;
+  return <nav className="attendance-tabs">{tabs.map(([key,href,Icon,label])=><Link key={key} href={href} className={active===key?"active":""} aria-current={active===key?"page":undefined} onClick={(event)=>{if(active!==key&&canLeave&&!canLeave())event.preventDefault()}}><Icon size={16}/>{label}</Link>)}</nav>;
+}
+
+function timesheetSessionInput(row:Row):TimesheetSessionInput {
+  const project=one(row.project)||{};
+  const checkInEvent=one(row.check_in_event)||{};
+  return {
+    id:String(row.id),
+    project_id:String(row.project_id||project.id||""),
+    project_name:String(checkInEvent.project_name_snapshot||project.project_name||""),
+    site_name:String(checkInEvent.site_name_snapshot||project.site_name||""),
+    check_in_time:String(row.check_in_time),
+    check_out_time:row.check_out_time||null,
+    status:String(row.status||""),
+    is_manual_entry:Boolean(row.is_manual_entry),
+    timezone:getSessionTimeZone(row),
+  };
+}
+
+function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string;flash:(s:string)=>void}) {
+  const copy=timesheetText[locale as Locale]||timesheetText.en;
+  const manualCopy=manualAttendanceText[locale as Locale]||manualAttendanceText.en;
+  const languageLocale=resolveIntlLocale(locale);
+  const users:Row[]=useMemo(()=>data.demo?demoPeople:(data.users||[]),[data]);
+  const projects:Row[]=useMemo(()=>data.demo?demoProjects:(data.projects||[]),[data]);
+  const projectZones=useMemo(()=>projects.map((project)=>({id:String(project.id),timezone:String(project.timezone||"UTC")})),[projects]);
+  const today=localDateValue();
+  const [workerId,setWorkerId]=useState("");
+  const [start,setStart]=useState(`${today.slice(0,8)}01`);
+  const [end,setEnd]=useState(today);
+  const [loaded,setLoaded]=useState<{workerId:string;start:string;end:string}|null>(null);
+  const [rows,setRows]=useState<TimesheetRow[]>([]);
+  const [rowErrors,setRowErrors]=useState<Record<string,string>>({});
+  const [defaultProjectId,setDefaultProjectId]=useState("");
+  const [fillIn,setFillIn]=useState("08:00");
+  const [fillOut,setFillOut]=useState("17:00");
+  const [weekdaysOnly,setWeekdaysOnly]=useState(true);
+  const [reason,setReason]=useState<string|null>(null);
+  const [fetching,setFetching]=useState(false);
+  const [fetchError,setFetchError]=useState("");
+  const [saving,setSaving]=useState<{done:number;total:number}|null>(null);
+  const activeDefaultProjectId=projects.some((project)=>project.id===defaultProjectId)?defaultProjectId:String(projects[0]?.id||"");
+  const saveReason=reason??copy.defaultReason;
+  const issues=useMemo(()=>validateTimesheetRows(rows,projectZones),[rows,projectZones]);
+  const dirtyKeys=useMemo(()=>new Set(rows.filter(isRowDirty).map((row)=>row.key)),[rows]);
+  const issueCount=Object.keys(issues).length;
+  const dirtyCount=dirtyKeys.size;
+  const durations=useMemo(()=>new Map(rows.map((row)=>[row.key,rowDurationSeconds(row,projectZones)])),[rows,projectZones]);
+  const totalSeconds=[...durations.values()].reduce<number>((sum,value)=>sum+(value||0),0);
+  const daysWorked=new Set(rows.filter((row)=>durations.get(row.key)).map((row)=>row.date)).size;
+  const loadedWorker=users.find((user)=>user.id===loaded?.workerId);
+  const normalizedFillIn=normalizeTimeInput(fillIn);
+  const normalizedFillOut=normalizeTimeInput(fillOut);
+  const weekdayFormat=useMemo(()=>new Intl.DateTimeFormat(languageLocale,{weekday:"short",timeZone:"UTC"}),[languageLocale]);
+
+  useEffect(()=>{
+    if(!dirtyCount)return;
+    function warn(event:BeforeUnloadEvent){event.preventDefault();event.returnValue="";}
+    window.addEventListener("beforeunload",warn);
+    return()=>window.removeEventListener("beforeunload",warn);
+  },[dirtyCount]);
+
+  function canDiscard(){return !dirtyCount||window.confirm(copy.confirmDiscard);}
+
+  async function fetchRows(target:{workerId:string;start:string;end:string},drafts:TimesheetRow[]=[]){
+    setFetching(true);setFetchError("");
+    try{
+      const query=new URLSearchParams({worker:target.workerId,start:target.start,end:target.end});
+      const response=await fetch(`/api/admin/attendance?${query}`,{cache:"no-store"});
+      if(!response.ok)throw new Error("LOAD_FAILED");
+      const payload=await response.json();
+      const sessions=(payload.sessions||[]).map(timesheetSessionInput);
+      const latest=[...sessions].sort((a,b)=>Date.parse(b.check_in_time)-Date.parse(a.check_in_time)).find((session)=>projects.some((project)=>project.id===session.project_id));
+      const newRowProjectId=drafts.length||!latest?activeDefaultProjectId:latest.project_id;
+      if(newRowProjectId!==activeDefaultProjectId)setDefaultProjectId(newRowProjectId);
+      const fresh=buildTimesheetRows({start:target.start,end:target.end,sessions,defaultProjectId:newRowProjectId});
+      setRows(drafts.length?mergeFailedDrafts(fresh,drafts):fresh);
+      setLoaded(target);
+    }catch{setFetchError(t.loadError)}finally{setFetching(false)}
+  }
+
+  function loadTimesheet(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(!workerId||!start||!end||start>end||!canDiscard())return;
+    setRowErrors({});
+    void fetchRows({workerId,start,end});
+  }
+
+  function updateRow(key:string,patch:Partial<TimesheetRow>){
+    setRows((current)=>current.map((row)=>row.key===key?{...row,...patch}:row));
+    setRowErrors((current)=>{if(!current[key])return current;const next={...current};delete next[key];return next;});
+  }
+
+  function focusCell(index:number,field:"checkIn"|"checkOut",step:1|-1){
+    for(let target=index;target>=0&&target<rows.length;target+=step){
+      const input=document.querySelector<HTMLInputElement>(`[data-timesheet-cell="${field}-${target}"]`);
+      if(input&&!input.disabled){input.focus();input.select();return;}
+    }
+  }
+
+  function cellKeyDown(event:KeyboardEvent<HTMLInputElement>,index:number,field:"checkIn"|"checkOut"){
+    if(event.key==="Enter"||event.key==="ArrowDown"){event.preventDefault();focusCell(index+1,field,1);}
+    if(event.key==="ArrowUp"){event.preventDefault();focusCell(index-1,field,-1);}
+  }
+
+  function cellPaste(event:ClipboardEvent<HTMLInputElement>,row:TimesheetRow,field:"checkIn"|"checkOut"){
+    const pasted=event.clipboardData.getData("text");
+    if(!/[\t\n]/.test(pasted.trim()))return;
+    event.preventDefault();
+    setRows((current)=>applyPastedTimes(current,row.key,field,pasted));
+  }
+
+  function issueMessage(issue:TimesheetIssue){return issue.code==="OVERLAP"?`${copy.issues.OVERLAP}${issue.conflictDate}`:copy.issues[issue.code];}
+
+  async function save(){
+    if(!loaded||saving||issueCount||!saveReason.trim())return;
+    const requests=buildSaveRequests(rows,projectZones,{workerId:loaded.workerId,reason:saveReason.trim()});
+    if(!requests.length)return;
+    const failures:Record<string,string>={};
+    setSaving({done:0,total:requests.length});
+    for(const [index,request] of requests.entries()){
+      try{
+        const response=await fetch(request.url,{method:request.method,headers:{"content-type":"application/json"},body:JSON.stringify(request.body)});
+        if(!response.ok){
+          const result=await response.json().catch(()=>({}));
+          failures[request.key]=result.error==="ATTENDANCE_TIME_OVERLAP"?manualCopy.overlap:String(result.message||result.error||copy.saveFailed);
+        }
+      }catch{failures[request.key]=copy.saveFailed;}
+      setSaving({done:index+1,total:requests.length});
+    }
+    await fetchRows(loaded,rows.filter((row)=>failures[row.key]));
+    setRowErrors(failures);
+    setSaving(null);
+    const failedCount=Object.keys(failures).length;
+    flash(failedCount?copy.partial(requests.length-failedCount,failedCount):copy.saved(requests.length));
+  }
+
+  function rowProblem(row:TimesheetRow){return rowErrors[row.key]||(issues[row.key]?issueMessage(issues[row.key]):"");}
+
+  function entryCell(row:TimesheetRow){
+    if(rowProblem(row))return <span className="timesheet-issue"><AlertTriangle size={14}/></span>;
+    if(row.locked)return <span className="timesheet-muted">{copy.locked}</span>;
+    if(dirtyKeys.has(row.key))return <span className={`timesheet-change ${row.original?"edited":"new"}`}>{row.original?copy.edited:copy.newEntry}</span>;
+    if(!row.original)return <span className="timesheet-muted">—</span>;
+    return <span className="session-status-cell">{row.isManualEntry?<span className="manual-entry-badge">{manualCopy.manual}</span>:<span className="timesheet-muted">{copy.workerPunch}</span>}<StatusBadge status={row.status||""} t={t}/></span>;
+  }
+
+  return <PageState loading={loading} error={error} empty={!users.length||!projects.length} retry={load} t={t}><AttendanceTabs active="timesheet" locale={locale} canLeave={canDiscard}/><div className="timesheet-workspace">
+    <form className="admin-card timesheet-controls" onSubmit={loadTimesheet}>
+      <div className="report-builder-heading"><div className="report-icon"><Table2 size={24}/></div><div><h2>{copy.title}</h2><p>{copy.hint}</p></div></div>
+      <div className="timesheet-filter-grid">
+        <label>{t.worker}<select value={workerId} required onChange={(event)=>setWorkerId(event.target.value)}><option value="">{manualCopy.worker}</option>{users.map((user)=><option key={user.id} value={user.id}>{user.display_name}{user.company?` · ${user.company}`:""}</option>)}</select></label>
+        <label>{t.startDate}<input type="date" value={start} max={end||undefined} required onChange={(event)=>setStart(event.target.value)}/></label>
+        <label>{t.endDate}<input type="date" value={end} min={start||undefined} required onChange={(event)=>setEnd(event.target.value)}/></label>
+        <button className="admin-primary" type="submit" disabled={fetching||Boolean(saving)||!workerId}>{fetching?<LoaderCircle className="spin" size={17}/>:<CalendarRange size={17}/>}{fetching?t.loading:copy.load}</button>
+      </div>
+      {fetchError&&<p className="report-error" role="alert">{fetchError}</p>}
+    </form>
+
+    {!loaded?<article className="admin-card report-empty-preview"><Table2 size={30}/><h2>{copy.timesheet}</h2><p>{copy.choose}</p></article>:<>
+      <section className="admin-card timesheet-fill">
+        <label className="wide">{copy.defaultProject}<select value={activeDefaultProjectId} onChange={(event)=>setDefaultProjectId(event.target.value)}>{projects.map((project)=><option key={project.id} value={project.id}>{project.project_name}{project.site_name?` · ${project.site_name}`:""}</option>)}</select></label>
+        <label>{copy.defaultIn}<input value={fillIn} onChange={(event)=>setFillIn(event.target.value)} onBlur={()=>{if(normalizedFillIn)setFillIn(normalizedFillIn)}} aria-invalid={!normalizedFillIn}/></label>
+        <label>{copy.defaultOut}<input value={fillOut} onChange={(event)=>setFillOut(event.target.value)} onBlur={()=>{if(normalizedFillOut)setFillOut(normalizedFillOut)}} aria-invalid={!normalizedFillOut}/></label>
+        <label className="check-label"><input type="checkbox" checked={weekdaysOnly} onChange={(event)=>setWeekdaysOnly(event.target.checked)}/><span>{weekdaysOnly?"✓":""}</span>{copy.weekdaysOnly}</label>
+        <button type="button" className="secondary-button" disabled={Boolean(saving)||!normalizedFillIn||!normalizedFillOut} onClick={()=>setRows((current)=>fillBlankRows(current,{projectId:activeDefaultProjectId,checkIn:normalizedFillIn||"",checkOut:normalizedFillOut||"",weekdaysOnly}))}><Wand2 size={16}/>{copy.fillBlank}</button>
+      </section>
+
+      <article className="admin-card timesheet-card">
+        <div className="card-heading"><div><p>{loadedWorker?.display_name||"—"}</p><span>{loaded.start} — {loaded.end} · {timeText[locale as Locale].localTime}</span></div></div>
+        <fieldset className="timesheet-grid-scroll" disabled={Boolean(saving)}>
+          <table className="timesheet-grid">
+            <thead><tr><th>{t.date}</th><th>{copy.projectSite}</th><th>{copy.in}</th><th>{copy.out}</th><th>{t.hours}</th><th>{copy.entry}</th><th><span className="sr-only">{t.action}</span></th></tr></thead>
+            <tbody>{rows.map((row,index)=>{
+              const firstOfDay=index===0||rows[index-1].date!==row.date;
+              const duration=durations.get(row.key);
+              const checkIn=normalizeTimeInput(row.checkIn);
+              const checkOut=normalizeTimeInput(row.checkOut);
+              const overnight=Boolean(checkIn&&checkOut&&checkOut<=checkIn);
+              const knownProject=projects.some((project)=>project.id===row.projectId);
+              const removable=!row.original&&(rows.filter((other)=>other.date===row.date).length>1||dirtyKeys.has(row.key));
+              const problem=rowProblem(row);
+              const className=[firstOfDay?"day-start":"",isWeekend(row.date)?"weekend":"",dirtyKeys.has(row.key)?"dirty":"",problem?"invalid":"",row.locked?"locked":""].filter(Boolean).join(" ");
+              return <Fragment key={row.key}><tr className={className}>
+                <th scope="row">{firstOfDay?<span className="timesheet-date"><strong>{row.date}</strong><small>{weekdayFormat.format(new Date(`${row.date}T00:00:00Z`))}</small></span>:<span className="timesheet-date continued" title={row.date}>↳</span>}</th>
+                <td><select aria-label={`${copy.projectSite} ${row.date}`} value={row.projectId} disabled={row.locked} onChange={(event)=>updateRow(row.key,{projectId:event.target.value})}>{!row.projectId&&<option value="">—</option>}{row.projectId&&!knownProject&&<option value={row.projectId}>{row.projectName||row.projectId}{row.siteName?` · ${row.siteName}`:""}</option>}{projects.map((project)=><option key={project.id} value={project.id}>{project.project_name}{project.site_name?` · ${project.site_name}`:""}</option>)}</select><small>{rowTimeZone(row,projectZones)}</small></td>
+                {(["checkIn","checkOut"] as const).map((field)=><td key={field}><div className="timesheet-time"><input data-timesheet-cell={`${field}-${index}`} aria-label={`${field==="checkIn"?copy.in:copy.out} ${row.date}`} value={row[field]} placeholder="--:--" disabled={row.locked} autoComplete="off" spellCheck={false} onChange={(event)=>updateRow(row.key,{[field]:event.target.value})} onBlur={(event)=>{const normalized=normalizeTimeInput(event.target.value);if(normalized&&normalized!==row[field])updateRow(row.key,{[field]:normalized})}} onKeyDown={(event)=>cellKeyDown(event,index,field)} onPaste={(event)=>cellPaste(event,row,field)}/>{field==="checkOut"&&overnight&&<span className="next-day-badge" title={copy.nextDay}>+1</span>}</div></td>)}
+                <td className="mono">{duration==null?"—":(duration/3600).toFixed(2)}</td>
+                <td>{entryCell(row)}</td>
+                <td><div className="timesheet-actions">
+                  <button type="button" title={copy.addShift} aria-label={copy.addShift} onClick={()=>setRows((current)=>addShiftRow(current,row.date,activeDefaultProjectId))}><Plus size={15}/></button>
+                  {removable&&<button type="button" title={copy.removeShift} aria-label={copy.removeShift} onClick={()=>setRows((current)=>removeShiftRow(current,row.key,activeDefaultProjectId))}><X size={15}/></button>}
+                  {row.sessionId&&<Link href={`/admin/attendance/${row.sessionId}`} title={copy.openRecord} aria-label={copy.openRecord} onClick={(event)=>{if(!canDiscard())event.preventDefault()}}><ChevronRight size={16}/></Link>}
+                </div></td>
+              </tr>{problem&&<tr className="timesheet-issue-row"><th aria-hidden="true"/><td colSpan={6}><span className="timesheet-issue" role="alert"><AlertTriangle size={14}/>{problem}</span></td></tr>}</Fragment>;
+            })}</tbody>
+            <tfoot><tr><th>{copy.total}</th><td>{copy.daysWorked}: {daysWorked}</td><td/><td/><td className="mono">{(totalSeconds/3600).toFixed(2)}</td><td colSpan={2}/></tr></tfoot>
+          </table>
+        </fieldset>
+      </article>
+
+      {(dirtyCount>0||saving)&&<div className="timesheet-savebar" role="region" aria-label={copy.save}>
+        <div className="timesheet-savebar-status"><strong>{saving?copy.saving(saving.done,saving.total):copy.unsaved(dirtyCount)}</strong>{issueCount>0&&!saving&&<span className="timesheet-issue"><AlertTriangle size={14}/>{copy.fixFirst(issueCount)}</span>}</div>
+        <label className="timesheet-savebar-reason">{copy.reason}<input value={saveReason} maxLength={1000} disabled={Boolean(saving)} onChange={(event)=>setReason(event.target.value)}/></label>
+        <div className="timesheet-savebar-actions">
+          <button type="button" className="secondary-button" disabled={Boolean(saving)||fetching} onClick={()=>{if(canDiscard()){setRowErrors({});void fetchRows(loaded);}}}><Undo2 size={16}/>{copy.discard}</button>
+          <button type="button" className="admin-primary" disabled={Boolean(saving)||fetching||issueCount>0||!saveReason.trim()} onClick={()=>void save()}>{saving?<LoaderCircle className="spin" size={16}/>:<Save size={16}/>}{copy.save}</button>
+        </div>
+      </div>}
+    </>}
+  </div></PageState>;
+}
 
 function AttendanceDetail({data,loading,error,load,t,locale,onCorrect,onDelete}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string;onCorrect:(r:Row)=>void;onDelete:(r:Row)=>void}) {
   const session=data.demo?demoSessions[0]:data.session;const worker=one(session?.worker)||{};const project=one(session?.project)||{};const inEvent=one(session?.check_in_event)||{};const outEvent=one(session?.check_out_event)||{};
@@ -363,6 +601,8 @@ function PhotoRecord({type,event,timestamp,url,t,locale,timeZone,manual}:{type:s
   return <article className="admin-card photo-record">{url?<img className="attendance-photo" src={url} alt={type}/>:<div className="photo-placeholder"><div className="photo-person"><span/><i/></div>{manual&&<p className="manual-photo-note">{manualCopy.noPhoto}</p>}</div>}<div className="photo-meta"><div><span>{type} · {copy.localTime}</span><strong>{formatTime(displayTimestamp,locale,timeZone)}</strong></div><div><span>{t.recordId}</span><strong>{event.record_code||"—"}</strong></div><div><span>{copy.localDate}</span><strong>{formatDate(displayTimestamp,locale,timeZone)}</strong><small>{timeZone}</small></div></div></article>;
 }
 
+const ALL_REPORT_PROJECTS="all";
+
 function ReportsView({data,loading,error,load,t,locale,flash}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string;flash:(s:string)=>void}) {
   const projects=data.demo?demoProjects:(data.projects||[]);
   const users=data.demo?demoPeople:(data.users||[]);
@@ -376,16 +616,19 @@ function ReportsView({data,loading,error,load,t,locale,flash}:{data:Row;loading:
   const [downloading,setDownloading]=useState<"pdf"|"xlsx"|"csv"|null>(null);
   const [includePhotos,setIncludePhotos]=useState(false);
   const [reportError,setReportError]=useState("");
-  const activeProjectId=projects.some((project:Row)=>project.id===previewProjectId)?previewProjectId:(projects[0]?.id||"");
+  const scopeCopy=reportScopeText[locale as Locale]||reportScopeText.en;
+  const activeProjectId=previewProjectId===ALL_REPORT_PROJECTS||projects.some((project:Row)=>project.id===previewProjectId)?previewProjectId:(projects[0]?.id||"");
   const activeWorkerId=users.some((user:Row)=>user.id===previewWorkerId)?previewWorkerId:"";
   const languageLocale=resolveIntlLocale(locale);
+  const previewWorkerName=users.find((user:Row)=>user.id===preview?.filters?.worker_id)?.display_name||t.allPersonnel;
+  const previewCustomers=[...new Set((preview?.projects||[]).map((project:Row)=>project.customer_name).filter(Boolean))].join(", ")||"—";
 
   function clearPreview(){setPreview(null);setReportError("");}
 
   async function runReport(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
     setRunning(true);setReportError("");
-    const body={project_id:activeProjectId,worker_id:activeWorkerId||undefined,start:start||undefined,end:end||undefined};
+    const body={project_id:activeProjectId===ALL_REPORT_PROJECTS?undefined:activeProjectId,worker_id:activeWorkerId||undefined,start:start||undefined,end:end||undefined};
     try{
       const response=await fetch("/api/admin/reports/preview",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});
       if(!response.ok)throw new Error("REPORT_FAILED");
@@ -413,7 +656,7 @@ function ReportsView({data,loading,error,load,t,locale,flash}:{data:Row;loading:
     <form className="admin-card report-builder" onSubmit={runReport}>
       <div className="report-builder-heading"><div className="report-icon"><FileText size={24}/></div><div><h2>{t.reportTitle}</h2><p>{t.reportHint}</p></div></div>
       <div className="report-filter-grid">
-        <label>{t.project}<select name="project_id" value={activeProjectId} onChange={(event)=>{setPreviewProjectId(event.target.value);setPreviewWorkerId("");clearPreview()}}>{projects.map((p:Row)=><option key={p.id} value={p.id}>{p.project_name}</option>)}</select></label>
+        <label>{t.project}<select name="project_id" value={activeProjectId} onChange={(event)=>{setPreviewProjectId(event.target.value);setPreviewWorkerId("");clearPreview()}}><option value={ALL_REPORT_PROJECTS}>{scopeCopy.allProjects}</option>{projects.map((p:Row)=><option key={p.id} value={p.id}>{p.project_name}</option>)}</select></label>
         <label>{t.worker}<select name="worker_id" value={activeWorkerId} onChange={(event)=>{setPreviewWorkerId(event.target.value);clearPreview()}}><option value="">{t.allPersonnel}</option>{users.map((user:Row)=><option key={user.id} value={user.id}>{user.display_name}</option>)}</select></label>
         <label>{t.startDate}<input name="start" type="date" value={start} max={end||undefined} onChange={(event)=>{setStart(event.target.value);clearPreview()}}/></label>
         <label>{t.endDate}<input name="end" type="date" value={end} min={start||undefined} onChange={(event)=>{setEnd(event.target.value);clearPreview()}}/></label>
@@ -423,14 +666,15 @@ function ReportsView({data,loading,error,load,t,locale,flash}:{data:Row;loading:
     </form>
 
     {!preview?<article className="admin-card report-empty-preview"><FileBarChart size={30}/><h2>{t.reportPreview}</h2><p>{t.reportNotRun}</p></article>:<article className="report-preview">
-      <div className="report-preview-toolbar"><div><span>{t.reportReady}</span><strong>{preview.project?.project_name}</strong></div><div className="report-export-actions"><label className="check-label"><input type="checkbox" checked={includePhotos} onChange={(event)=>setIncludePhotos(event.target.checked)}/><span>{includePhotos?"✓":""}</span>{t.include}</label><button className="admin-primary" type="button" disabled={downloading!==null} onClick={()=>download("pdf")}><FileText size={16}/>{downloading==="pdf"?t.loading:t.pdf}</button><button className="secondary-button" type="button" disabled={downloading!==null} onClick={()=>download("xlsx")}><ArrowDownToLine size={16}/>{downloading==="xlsx"?t.loading:t.excel}</button><button className="secondary-button" type="button" disabled={downloading!==null} onClick={()=>download("csv")}><ArrowDownToLine size={16}/>{downloading==="csv"?t.loading:t.csv}</button></div></div>
+      <div className="report-preview-toolbar"><div><span>{t.reportReady}</span><strong>{preview.all_projects?scopeCopy.allProjects:preview.project?.project_name}</strong></div><div className="report-export-actions"><label className="check-label"><input type="checkbox" checked={includePhotos} onChange={(event)=>setIncludePhotos(event.target.checked)}/><span>{includePhotos?"✓":""}</span>{t.include}</label><button className="admin-primary" type="button" disabled={downloading!==null} onClick={()=>download("pdf")}><FileText size={16}/>{downloading==="pdf"?t.loading:t.pdf}</button><button className="secondary-button" type="button" disabled={downloading!==null} onClick={()=>download("xlsx")}><ArrowDownToLine size={16}/>{downloading==="xlsx"?t.loading:t.excel}</button><button className="secondary-button" type="button" disabled={downloading!==null} onClick={()=>download("csv")}><ArrowDownToLine size={16}/>{downloading==="csv"?t.loading:t.csv}</button></div></div>
       <div className="report-paper">
         <header><div><strong>{preview.company_name||"—"}</strong><span>ONSITE SUPPORT PORTAL</span></div><p>SITE ATTENDANCE REPORT</p></header>
-        <section className="report-project"><div><span>{t.customer}</span><strong>{preview.project?.customer_name||"—"}</strong></div><div><span>{t.project}</span><strong>{preview.project?.project_name||"—"}</strong></div><div><span>{t.site}</span><strong>{preview.project?.site_name||"—"}</strong></div><div><span>{t.period}</span><strong>{preview.filters?.start||"—"} — {preview.filters?.end||"—"}</strong></div><div className="wide"><span>{t.address}</span><strong>{preview.project?.address||"—"}</strong></div><div><span>{timeText[locale as Locale].projectTimeZone}</span><strong>{preview.project?.timezone||"UTC"}</strong></div><div><span>{t.coordinates}</span><strong>{formatProjectCoordinates(preview.project?.latitude,preview.project?.longitude)||"—"}</strong></div></section>
+        {preview.all_projects?<section className="report-project"><div><span>{t.worker}</span><strong>{previewWorkerName}</strong></div><div><span>{t.project}</span><strong>{scopeCopy.projectCount(preview.projects?.length||0)}</strong></div><div className="span-2"><span>{t.period}</span><strong>{preview.filters?.start||"—"} — {preview.filters?.end||"—"}</strong></div><div className="wide"><span>{scopeCopy.customers}</span><strong>{previewCustomers}</strong></div></section>:<section className="report-project"><div><span>{t.customer}</span><strong>{preview.project?.customer_name||"—"}</strong></div><div><span>{t.project}</span><strong>{preview.project?.project_name||"—"}</strong></div><div><span>{t.site}</span><strong>{preview.project?.site_name||"—"}</strong></div><div><span>{t.period}</span><strong>{preview.filters?.start||"—"} — {preview.filters?.end||"—"}</strong></div><div className="wide"><span>{t.address}</span><strong>{preview.project?.address||"—"}</strong></div><div><span>{timeText[locale as Locale].projectTimeZone}</span><strong>{preview.project?.timezone||"UTC"}</strong></div><div><span>{t.coordinates}</span><strong>{formatProjectCoordinates(preview.project?.latitude,preview.project?.longitude)||"—"}</strong></div></section>}
         {preview.project?.map_url&&<div className="report-map-frame"><img src={preview.project.map_url} alt={t.map}/>{formatProjectCoordinates(preview.project?.latitude,preview.project?.longitude)&&<div className="project-coordinate-overlay"><LocateFixed size={13}/><div><span>{t.coordinates}</span><strong>{formatProjectCoordinates(preview.project?.latitude,preview.project?.longitude)}</strong></div></div>}</div>}
+        {preview.all_projects&&<section><h3>{scopeCopy.projectsCovered}</h3>{preview.projects?.length?<div className="report-table projects"><div className="report-table-row header"><span>{t.customer}</span><span>{t.project}</span><span>{t.site}</span><span>{timeText[locale as Locale].projectTimeZone}</span><span>{t.workDays}</span><span>{t.hours}</span></div>{preview.projects.map((project:Row)=><div className="report-table-row" key={project.project_id}><span>{project.customer_name||"—"}</span><strong>{project.project_name||"—"}</strong><span>{project.site_name||"—"}</span><span>{project.timezone}</span><span>{project.days_on_site}</span><span>{project.hours}</span></div>)}</div>:<p className="report-no-rows">{t.noReportRows}</p>}</section>}
         <section><h3>{t.total}</h3><div className="report-stat-grid"><div><span>{t.worker}</span><b>{preview.summary?.total_personnel||0}</b></div><div><span>{t.workSessions}</span><b>{preview.summary?.total_work_sessions||0}</b></div><div><span>{t.hours}</span><b>{preview.summary?.total_work_hours||0}</b></div><div><span>{t.workDays}</span><b>{preview.summary?.total_work_days||0}</b></div><div><span>{t.incomplete}</span><b>{preview.summary?.incomplete_sessions||0}</b></div></div></section>
         <section><h3>{t.personnelSummary}</h3>{preview.personnel?.length?<div className="report-table"><div className="report-table-row header"><span>{t.worker}</span><span>{t.company}</span><span>{t.workDays}</span><span>{t.hours}</span></div>{preview.personnel.map((person:Row)=><div className="report-table-row" key={`${person.name}-${person.company}`}><strong>{person.name}</strong><span>{person.company||"—"}</span><span>{person.days_on_site}</span><span>{person.hours}</span></div>)}</div>:<p className="report-no-rows">{t.noReportRows}</p>}</section>
-        <section><h3>{t.dailyAttendance} · {timeText[locale as Locale].localTime}</h3>{preview.sessions?.length?<div className="report-table attendance"><div className="report-table-row header"><span>{timeText[locale as Locale].localDate}</span><span>{t.worker}</span><span>{t.checkIn}</span><span>{t.checkOut}</span><span>{t.hours}</span><span>{t.status}</span><span>{t.workSummary}</span></div>{preview.sessions.map((session:Row)=><div className="report-table-row" key={session.id}><strong title={session.timezone}>{session.date}</strong><span>{session.worker_name}</span><span>{formatTime(session.check_in,languageLocale,session.timezone)}</span><span>{formatTime(session.check_out,languageLocale,session.timezone)}</span><span>{session.hours??"—"}</span><span>{session.is_manual_entry?manualAttendanceText[locale as Locale].manual:session.status}</span><span className="report-session-notes">{session.daily_work_summary?<b>{session.daily_work_summary}</b>:"—"}</span></div>)}</div>:<p className="report-no-rows">{t.noReportRows}</p>}</section>
+        <section><h3>{t.dailyAttendance} · {timeText[locale as Locale].localTime}</h3>{preview.sessions?.length?<div className={`report-table attendance${preview.all_projects?" with-project":""}`}><div className="report-table-row header"><span>{timeText[locale as Locale].localDate}</span><span>{t.worker}</span>{preview.all_projects&&<span>{t.project}</span>}<span>{t.checkIn}</span><span>{t.checkOut}</span><span>{t.hours}</span><span>{t.status}</span><span>{t.workSummary}</span></div>{preview.sessions.map((session:Row)=><div className="report-table-row" key={session.id}><strong title={session.timezone}>{session.date}</strong><span>{session.worker_name}</span>{preview.all_projects&&<span title={session.timezone}>{session.project_name}</span>}<span>{formatTime(session.check_in,languageLocale,session.timezone)}</span><span>{formatTime(session.check_out,languageLocale,session.timezone)}</span><span>{session.hours??"—"}</span><span>{session.is_manual_entry?manualAttendanceText[locale as Locale].manual:session.status}</span><span className="report-session-notes">{session.daily_work_summary?<b>{session.daily_work_summary}</b>:"—"}</span></div>)}</div>:<p className="report-no-rows">{t.noReportRows}</p>}</section>
       </div>
     </article>}
   </div></PageState>
