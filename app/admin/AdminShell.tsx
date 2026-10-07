@@ -7,13 +7,14 @@ import {
   ChevronDown, ChevronRight, ClipboardCheck, Clock3, FileBarChart, FileClock, FileText,
   KeyRound, LayoutDashboard, LoaderCircle, LocateFixed, MapPin, Menu, MoreHorizontal, Plus,
   Save, Search, SlidersHorizontal, Table2, Trash2, Undo2, Upload, Users, UserRoundCheck, Wand2, X,
-  CalendarRange,
+  CalendarRange, Columns3,
 } from "lucide-react";
 import { ClipboardEvent, DragEvent, FormEvent, Fragment, KeyboardEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { intlLocales, type Locale, useLanguage } from "@/app/lib/use-language";
 import { formatProjectCoordinates } from "@/lib/project-coordinates";
+import { fitColumnWidths } from "@/lib/column-widths";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
 import { TIME_ZONE_OPTIONS, formatLocalDate, formatLocalTime, getSessionTimeZone, toZonedDateTimeLocalInput } from "@/lib/timezones";
 import { isWorkSummaryValid, WORK_SUMMARY_LIMITS } from "@/lib/work-summary";
@@ -113,10 +114,10 @@ const reportScopeText = {
 } as const;
 
 const timesheetText = {
-  zh: { records:"考勤记录", timesheet:"工时表", title:"个人工时表", hint:"选择人员和任意日期范围，列出每一天。像 Excel 一样输入签到/签退（8、830、17:30、5:30pm），或直接从 Excel 粘贴。时间按各项目当地时区填写。", load:"加载工时表", choose:"选择人员和日期范围后加载工时表。", defaultProject:"新记录默认项目", defaultIn:"默认签到", defaultOut:"默认签退", fillBlank:"填充空白日期", weekdaysOnly:"仅工作日", projectSite:"项目 / 现场", in:"签到", out:"签退", entry:"记录类型", nextDay:"次日", addShift:"当天再添加一个班次", removeShift:"移除此未保存行", openRecord:"打开记录", newEntry:"新补录", edited:"已修改", workerPunch:"人员打卡", locked:"跨越超过一天，请在记录详情页修改", unsaved:(count:number)=>`${count} 处未保存修改`, reason:"修改原因（写入审计日志）", defaultReason:"管理员通过工时表人工核实", save:"保存修改", saving:(done:number,total:number)=>`正在保存 ${done} / ${total}…`, discard:"放弃修改", saved:(count:number)=>`已保存 ${count} 行`, partial:(saved:number,failed:number)=>`已保存 ${saved} 行，${failed} 行需要处理`, confirmDiscard:"工时表有未保存的修改，确定放弃吗？", total:"合计", daysWorked:"出勤天数", fixFirst:(count:number)=>`保存前请先修正 ${count} 行`, saveFailed:"该行保存失败", issues:{ BOTH_TIMES_REQUIRED:"请填写签到和签退", CHECK_IN_REQUIRED:"签到时间不能为空", DELETE_ON_RECORD_PAGE:"如需删除，请打开记录详情", INVALID_TIME:"请输入如 8:00 或 5:30pm 的时间", SAME_TIME:"签到和签退不能相同", PROJECT_REQUIRED:"请选择进行中的项目", OVERLAP:"与该日期的记录时间重叠：" } },
-  en: { records:"Records", timesheet:"Timesheet", title:"Personal timesheet", hint:"Pick a person and any date range to list every day. Type In/Out like a spreadsheet (8, 830, 17:30, 5:30pm) or paste straight from Excel. Times use each project's local time zone.", load:"Load timesheet", choose:"Choose a person and date range, then load the timesheet.", defaultProject:"Default project for new entries", defaultIn:"Default in", defaultOut:"Default out", fillBlank:"Fill blank days", weekdaysOnly:"Weekdays only", projectSite:"Project / Site", in:"In", out:"Out", entry:"Entry", nextDay:"Next day", addShift:"Add another shift on this day", removeShift:"Remove this unsaved row", openRecord:"Open record", newEntry:"New entry", edited:"Edited", workerPunch:"Worker check-in", locked:"Spans more than a day — edit it on the record page", unsaved:(count:number)=>`${count} unsaved ${count===1?"change":"changes"}`, reason:"Reason (saved to the audit log)", defaultReason:"Verified manually via timesheet", save:"Save changes", saving:(done:number,total:number)=>`Saving ${done} / ${total}…`, discard:"Discard changes", saved:(count:number)=>`${count} ${count===1?"row":"rows"} saved`, partial:(saved:number,failed:number)=>`${saved} saved, ${failed} need attention`, confirmDiscard:"You have unsaved timesheet changes. Discard them?", total:"Total", daysWorked:"Days worked", fixFirst:(count:number)=>`Fix ${count} ${count===1?"row":"rows"} before saving`, saveFailed:"This row could not be saved", issues:{ BOTH_TIMES_REQUIRED:"Enter both In and Out", CHECK_IN_REQUIRED:"In time is required", DELETE_ON_RECORD_PAGE:"To delete, open the record", INVALID_TIME:"Use a time like 8:00 or 5:30pm", SAME_TIME:"In and Out cannot match", PROJECT_REQUIRED:"Choose an active project", OVERLAP:"Overlaps the record on " } },
-  es: { records:"Registros", timesheet:"Hoja de horas", title:"Hoja de horas personal", hint:"Elige una persona y cualquier rango de fechas para ver todos los días. Escribe entrada/salida como en una hoja de cálculo (8, 830, 17:30, 5:30pm) o pega desde Excel. Las horas usan la zona horaria local de cada proyecto.", load:"Cargar hoja", choose:"Elige una persona y un rango de fechas y carga la hoja de horas.", defaultProject:"Proyecto predeterminado", defaultIn:"Entrada predeterminada", defaultOut:"Salida predeterminada", fillBlank:"Rellenar días vacíos", weekdaysOnly:"Solo días laborables", projectSite:"Proyecto / Sitio", in:"Entrada", out:"Salida", entry:"Tipo", nextDay:"Día siguiente", addShift:"Añadir otro turno este día", removeShift:"Quitar esta fila sin guardar", openRecord:"Abrir registro", newEntry:"Nuevo registro", edited:"Editado", workerPunch:"Marcaje del personal", locked:"Dura más de un día: edítalo en la página del registro", unsaved:(count:number)=>`${count} ${count===1?"cambio":"cambios"} sin guardar`, reason:"Motivo (se guarda en auditoría)", defaultReason:"Verificado manualmente en la hoja de horas", save:"Guardar cambios", saving:(done:number,total:number)=>`Guardando ${done} / ${total}…`, discard:"Descartar cambios", saved:(count:number)=>`${count} ${count===1?"fila guardada":"filas guardadas"}`, partial:(saved:number,failed:number)=>`${saved} guardadas, ${failed} requieren atención`, confirmDiscard:"Hay cambios sin guardar en la hoja de horas. ¿Descartarlos?", total:"Total", daysWorked:"Días trabajados", fixFirst:(count:number)=>`Corrige ${count} ${count===1?"fila":"filas"} antes de guardar`, saveFailed:"No se pudo guardar esta fila", issues:{ BOTH_TIMES_REQUIRED:"Indica entrada y salida", CHECK_IN_REQUIRED:"La entrada es obligatoria", DELETE_ON_RECORD_PAGE:"Para eliminar, abre el registro", INVALID_TIME:"Usa una hora como 8:00 o 5:30pm", SAME_TIME:"Entrada y salida no pueden coincidir", PROJECT_REQUIRED:"Elige un proyecto activo", OVERLAP:"Se superpone con el registro del " } },
-  ko: { records:"기록", timesheet:"근무표", title:"개인 근무표", hint:"인력과 원하는 날짜 범위를 선택하면 모든 날짜가 표시됩니다. 스프레드시트처럼 출근/퇴근을 입력하거나(8, 830, 17:30, 5:30pm) Excel에서 바로 붙여 넣으세요. 시간은 각 프로젝트의 현지 시간대를 사용합니다.", load:"근무표 불러오기", choose:"인력과 날짜 범위를 선택한 후 근무표를 불러오세요.", defaultProject:"새 기록 기본 프로젝트", defaultIn:"기본 출근", defaultOut:"기본 퇴근", fillBlank:"빈 날짜 채우기", weekdaysOnly:"평일만", projectSite:"프로젝트 / 현장", in:"출근", out:"퇴근", entry:"유형", nextDay:"다음 날", addShift:"이 날짜에 근무 추가", removeShift:"저장되지 않은 행 제거", openRecord:"기록 열기", newEntry:"새 기록", edited:"수정됨", workerPunch:"인력 출퇴근", locked:"하루 이상 지속됨 — 기록 페이지에서 수정하세요", unsaved:(count:number)=>`저장되지 않은 변경 ${count}개`, reason:"사유(감사 로그에 저장)", defaultReason:"근무표에서 관리자가 직접 확인함", save:"변경 저장", saving:(done:number,total:number)=>`저장 중 ${done} / ${total}…`, discard:"변경 취소", saved:(count:number)=>`${count}개 행 저장됨`, partial:(saved:number,failed:number)=>`${saved}개 저장, ${failed}개 확인 필요`, confirmDiscard:"저장되지 않은 근무표 변경이 있습니다. 취소할까요?", total:"합계", daysWorked:"근무일", fixFirst:(count:number)=>`저장하기 전에 ${count}개 행을 수정하세요`, saveFailed:"이 행을 저장하지 못했습니다", issues:{ BOTH_TIMES_REQUIRED:"출근과 퇴근을 모두 입력하세요", CHECK_IN_REQUIRED:"출근 시간은 필수입니다", DELETE_ON_RECORD_PAGE:"삭제하려면 기록을 여세요", INVALID_TIME:"8:00 또는 5:30pm 형식으로 입력하세요", SAME_TIME:"출근과 퇴근이 같을 수 없습니다", PROJECT_REQUIRED:"진행 중인 프로젝트를 선택하세요", OVERLAP:"다음 날짜의 기록과 겹칩니다: " } },
+  zh: { resizeHint:"拖动调整列宽，双击恢复自动宽度", autoFit:"列宽自动适应", records:"考勤记录", timesheet:"工时表", title:"个人工时表", hint:"选择人员和任意日期范围，列出每一天。像 Excel 一样输入签到/签退（8、830、17:30、5:30pm），或直接从 Excel 粘贴。时间按各项目当地时区填写。", load:"加载工时表", choose:"选择人员和日期范围后加载工时表。", defaultProject:"新记录默认项目", defaultIn:"默认签到", defaultOut:"默认签退", fillBlank:"填充空白日期", weekdaysOnly:"仅工作日", projectSite:"项目 / 现场", in:"签到", out:"签退", entry:"记录类型", nextDay:"次日", addShift:"当天再添加一个班次", removeShift:"移除此未保存行", openRecord:"打开记录", newEntry:"新补录", edited:"已修改", workerPunch:"人员打卡", locked:"跨越超过一天，请在记录详情页修改", unsaved:(count:number)=>`${count} 处未保存修改`, reason:"修改原因（写入审计日志）", defaultReason:"管理员通过工时表人工核实", save:"保存修改", saving:(done:number,total:number)=>`正在保存 ${done} / ${total}…`, discard:"放弃修改", saved:(count:number)=>`已保存 ${count} 行`, partial:(saved:number,failed:number)=>`已保存 ${saved} 行，${failed} 行需要处理`, confirmDiscard:"工时表有未保存的修改，确定放弃吗？", total:"合计", daysWorked:"出勤天数", fixFirst:(count:number)=>`保存前请先修正 ${count} 行`, saveFailed:"该行保存失败", issues:{ BOTH_TIMES_REQUIRED:"请填写签到和签退", CHECK_IN_REQUIRED:"签到时间不能为空", DELETE_ON_RECORD_PAGE:"如需删除，请打开记录详情", INVALID_TIME:"请输入如 8:00 或 5:30pm 的时间", SAME_TIME:"签到和签退不能相同", PROJECT_REQUIRED:"请选择进行中的项目", OVERLAP:"与该日期的记录时间重叠：" } },
+  en: { resizeHint:"Drag to resize, double-click to auto-fit", autoFit:"Auto-fit columns", records:"Records", timesheet:"Timesheet", title:"Personal timesheet", hint:"Pick a person and any date range to list every day. Type In/Out like a spreadsheet (8, 830, 17:30, 5:30pm) or paste straight from Excel. Times use each project's local time zone.", load:"Load timesheet", choose:"Choose a person and date range, then load the timesheet.", defaultProject:"Default project for new entries", defaultIn:"Default in", defaultOut:"Default out", fillBlank:"Fill blank days", weekdaysOnly:"Weekdays only", projectSite:"Project / Site", in:"In", out:"Out", entry:"Entry", nextDay:"Next day", addShift:"Add another shift on this day", removeShift:"Remove this unsaved row", openRecord:"Open record", newEntry:"New entry", edited:"Edited", workerPunch:"Worker check-in", locked:"Spans more than a day — edit it on the record page", unsaved:(count:number)=>`${count} unsaved ${count===1?"change":"changes"}`, reason:"Reason (saved to the audit log)", defaultReason:"Verified manually via timesheet", save:"Save changes", saving:(done:number,total:number)=>`Saving ${done} / ${total}…`, discard:"Discard changes", saved:(count:number)=>`${count} ${count===1?"row":"rows"} saved`, partial:(saved:number,failed:number)=>`${saved} saved, ${failed} need attention`, confirmDiscard:"You have unsaved timesheet changes. Discard them?", total:"Total", daysWorked:"Days worked", fixFirst:(count:number)=>`Fix ${count} ${count===1?"row":"rows"} before saving`, saveFailed:"This row could not be saved", issues:{ BOTH_TIMES_REQUIRED:"Enter both In and Out", CHECK_IN_REQUIRED:"In time is required", DELETE_ON_RECORD_PAGE:"To delete, open the record", INVALID_TIME:"Use a time like 8:00 or 5:30pm", SAME_TIME:"In and Out cannot match", PROJECT_REQUIRED:"Choose an active project", OVERLAP:"Overlaps the record on " } },
+  es: { resizeHint:"Arrastra para cambiar el ancho; doble clic para ajustar", autoFit:"Ajustar columnas", records:"Registros", timesheet:"Hoja de horas", title:"Hoja de horas personal", hint:"Elige una persona y cualquier rango de fechas para ver todos los días. Escribe entrada/salida como en una hoja de cálculo (8, 830, 17:30, 5:30pm) o pega desde Excel. Las horas usan la zona horaria local de cada proyecto.", load:"Cargar hoja", choose:"Elige una persona y un rango de fechas y carga la hoja de horas.", defaultProject:"Proyecto predeterminado", defaultIn:"Entrada predeterminada", defaultOut:"Salida predeterminada", fillBlank:"Rellenar días vacíos", weekdaysOnly:"Solo días laborables", projectSite:"Proyecto / Sitio", in:"Entrada", out:"Salida", entry:"Tipo", nextDay:"Día siguiente", addShift:"Añadir otro turno este día", removeShift:"Quitar esta fila sin guardar", openRecord:"Abrir registro", newEntry:"Nuevo registro", edited:"Editado", workerPunch:"Marcaje del personal", locked:"Dura más de un día: edítalo en la página del registro", unsaved:(count:number)=>`${count} ${count===1?"cambio":"cambios"} sin guardar`, reason:"Motivo (se guarda en auditoría)", defaultReason:"Verificado manualmente en la hoja de horas", save:"Guardar cambios", saving:(done:number,total:number)=>`Guardando ${done} / ${total}…`, discard:"Descartar cambios", saved:(count:number)=>`${count} ${count===1?"fila guardada":"filas guardadas"}`, partial:(saved:number,failed:number)=>`${saved} guardadas, ${failed} requieren atención`, confirmDiscard:"Hay cambios sin guardar en la hoja de horas. ¿Descartarlos?", total:"Total", daysWorked:"Días trabajados", fixFirst:(count:number)=>`Corrige ${count} ${count===1?"fila":"filas"} antes de guardar`, saveFailed:"No se pudo guardar esta fila", issues:{ BOTH_TIMES_REQUIRED:"Indica entrada y salida", CHECK_IN_REQUIRED:"La entrada es obligatoria", DELETE_ON_RECORD_PAGE:"Para eliminar, abre el registro", INVALID_TIME:"Usa una hora como 8:00 o 5:30pm", SAME_TIME:"Entrada y salida no pueden coincidir", PROJECT_REQUIRED:"Elige un proyecto activo", OVERLAP:"Se superpone con el registro del " } },
+  ko: { resizeHint:"드래그하여 너비 조정, 두 번 클릭하면 자동 맞춤", autoFit:"열 너비 자동 맞춤", records:"기록", timesheet:"근무표", title:"개인 근무표", hint:"인력과 원하는 날짜 범위를 선택하면 모든 날짜가 표시됩니다. 스프레드시트처럼 출근/퇴근을 입력하거나(8, 830, 17:30, 5:30pm) Excel에서 바로 붙여 넣으세요. 시간은 각 프로젝트의 현지 시간대를 사용합니다.", load:"근무표 불러오기", choose:"인력과 날짜 범위를 선택한 후 근무표를 불러오세요.", defaultProject:"새 기록 기본 프로젝트", defaultIn:"기본 출근", defaultOut:"기본 퇴근", fillBlank:"빈 날짜 채우기", weekdaysOnly:"평일만", projectSite:"프로젝트 / 현장", in:"출근", out:"퇴근", entry:"유형", nextDay:"다음 날", addShift:"이 날짜에 근무 추가", removeShift:"저장되지 않은 행 제거", openRecord:"기록 열기", newEntry:"새 기록", edited:"수정됨", workerPunch:"인력 출퇴근", locked:"하루 이상 지속됨 — 기록 페이지에서 수정하세요", unsaved:(count:number)=>`저장되지 않은 변경 ${count}개`, reason:"사유(감사 로그에 저장)", defaultReason:"근무표에서 관리자가 직접 확인함", save:"변경 저장", saving:(done:number,total:number)=>`저장 중 ${done} / ${total}…`, discard:"변경 취소", saved:(count:number)=>`${count}개 행 저장됨`, partial:(saved:number,failed:number)=>`${saved}개 저장, ${failed}개 확인 필요`, confirmDiscard:"저장되지 않은 근무표 변경이 있습니다. 취소할까요?", total:"합계", daysWorked:"근무일", fixFirst:(count:number)=>`저장하기 전에 ${count}개 행을 수정하세요`, saveFailed:"이 행을 저장하지 못했습니다", issues:{ BOTH_TIMES_REQUIRED:"출근과 퇴근을 모두 입력하세요", CHECK_IN_REQUIRED:"출근 시간은 필수입니다", DELETE_ON_RECORD_PAGE:"삭제하려면 기록을 여세요", INVALID_TIME:"8:00 또는 5:30pm 형식으로 입력하세요", SAME_TIME:"출근과 퇴근이 같을 수 없습니다", PROJECT_REQUIRED:"진행 중인 프로젝트를 선택하세요", OVERLAP:"다음 날짜의 기록과 겹칩니다: " } },
 } as const;
 
 function one(value: any) { return Array.isArray(value) ? value[0] : value; }
@@ -393,6 +394,36 @@ function timesheetSessionInput(row:Row):TimesheetSessionInput {
   };
 }
 
+const TIMESHEET_COLUMNS = [
+  { key:"date", min:96, max:150, weight:0.4 },
+  { key:"project", min:150, weight:3 },
+  { key:"checkIn", min:80, max:180, weight:0.7 },
+  { key:"checkOut", min:104, max:200, weight:0.7 },
+  { key:"hours", min:58, max:110, weight:0.3 },
+  { key:"entry", min:140, max:360, weight:1.4 },
+  { key:"actions", min:76 },
+] as const;
+const TIMESHEET_COLUMN_STORAGE_KEY="onsite.timesheet.columnWidths";
+
+function readTimesheetColumnWidths():Record<string,number> {
+  if(typeof window==="undefined")return {};
+  try{
+    const stored=JSON.parse(window.localStorage.getItem(TIMESHEET_COLUMN_STORAGE_KEY)||"{}") as Record<string,unknown>;
+    return Object.fromEntries(Object.entries(stored).filter((entry):entry is [string,number]=>TIMESHEET_COLUMNS.some((column)=>column.key===entry[0])&&typeof entry[1]==="number"&&Number.isFinite(entry[1])));
+  }catch{return {};}
+}
+
+function ColumnResizer({label,width,onResize,onReset}:{label:string;width:number;onResize:(width:number)=>void;onReset:()=>void}) {
+  const drag=useRef<{x:number;width:number}|null>(null);
+  return <button type="button" aria-label={label} title={label} className="column-resizer"
+    onPointerDown={(event)=>{event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);drag.current={x:event.clientX,width};}}
+    onPointerMove={(event)=>{if(drag.current)onResize(drag.current.width+event.clientX-drag.current.x);}}
+    onPointerUp={(event)=>{drag.current=null;event.currentTarget.releasePointerCapture(event.pointerId);}}
+    onPointerCancel={()=>{drag.current=null;}}
+    onDoubleClick={onReset}
+    onKeyDown={(event)=>{if(event.key==="ArrowLeft"||event.key==="ArrowRight"){event.preventDefault();onResize(width+(event.key==="ArrowRight"?16:-16));}}}/>;
+}
+
 function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loading:boolean;error:string;load:()=>void;t:T;locale:string;flash:(s:string)=>void}) {
   const copy=timesheetText[locale as Locale]||timesheetText.en;
   const manualCopy=manualAttendanceText[locale as Locale]||manualAttendanceText.en;
@@ -415,6 +446,20 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
   const [fetching,setFetching]=useState(false);
   const [fetchError,setFetchError]=useState("");
   const [saving,setSaving]=useState<{done:number;total:number}|null>(null);
+  const [columnOverrides,setColumnOverrides]=useState<Record<string,number>>(readTimesheetColumnWidths);
+  const [gridWidth,setGridWidth]=useState(0);
+  const gridObserver=useRef<ResizeObserver|null>(null);
+  const gridScrollRef=useCallback((node:HTMLFieldSetElement|null)=>{
+    gridObserver.current?.disconnect();
+    gridObserver.current=null;
+    if(!node)return;
+    setGridWidth(node.clientWidth);
+    const observer=new ResizeObserver(([entry])=>setGridWidth(Math.floor(entry.contentRect.width)));
+    observer.observe(node);
+    gridObserver.current=observer;
+  },[]);
+  const columnWidths=useMemo(()=>fitColumnWidths(gridWidth,TIMESHEET_COLUMNS,columnOverrides),[gridWidth,columnOverrides]);
+  const tableWidth=Object.values(columnWidths).reduce((sum,width)=>sum+width,0);
   const activeDefaultProjectId=projects.some((project)=>project.id===defaultProjectId)?defaultProjectId:String(projects[0]?.id||"");
   const saveReason=reason??copy.defaultReason;
   const issues=useMemo(()=>validateTimesheetRows(rows,projectZones),[rows,projectZones]);
@@ -436,7 +481,23 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
     return()=>window.removeEventListener("beforeunload",warn);
   },[dirtyCount]);
 
+  useEffect(()=>{
+    try{
+      if(Object.keys(columnOverrides).length)window.localStorage.setItem(TIMESHEET_COLUMN_STORAGE_KEY,JSON.stringify(columnOverrides));
+      else window.localStorage.removeItem(TIMESHEET_COLUMN_STORAGE_KEY);
+    }catch{/* Column widths are a convenience; keep working without storage. */}
+  },[columnOverrides]);
+
   function canDiscard(){return !dirtyCount||window.confirm(copy.confirmDiscard);}
+
+  function resizeColumn(key:string,width:number){
+    const column=TIMESHEET_COLUMNS.find((item)=>item.key===key);
+    if(column)setColumnOverrides((current)=>({...current,[key]:Math.max(column.min,Math.round(width))}));
+  }
+
+  function autoFitColumn(key:string){
+    setColumnOverrides((current)=>{const next={...current};delete next[key];return next;});
+  }
 
   async function fetchRows(target:{workerId:string;start:string;end:string},drafts:TimesheetRow[]=[]){
     setFetching(true);setFetchError("");
@@ -543,10 +604,11 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
       </section>
 
       <article className="admin-card timesheet-card">
-        <div className="card-heading"><div><p>{loadedWorker?.display_name||"—"}</p><span>{loaded.start} — {loaded.end} · {timeText[locale as Locale].localTime}</span></div></div>
-        <fieldset className="timesheet-grid-scroll" disabled={Boolean(saving)}>
-          <table className="timesheet-grid">
-            <thead><tr><th>{t.date}</th><th>{copy.projectSite}</th><th>{copy.in}</th><th>{copy.out}</th><th>{t.hours}</th><th>{copy.entry}</th><th><span className="sr-only">{t.action}</span></th></tr></thead>
+        <div className="card-heading"><div><p>{loadedWorker?.display_name||"—"}</p><span>{loaded.start} — {loaded.end} · {timeText[locale as Locale].localTime}</span></div>{Object.keys(columnOverrides).length>0&&<button type="button" onClick={()=>setColumnOverrides({})}><Columns3 size={14}/>{copy.autoFit}</button>}</div>
+        <fieldset ref={gridScrollRef} className="timesheet-grid-scroll" disabled={Boolean(saving)}>
+          <table className="timesheet-grid" style={{width:tableWidth}}>
+            <colgroup>{TIMESHEET_COLUMNS.map((column)=><col key={column.key} style={{width:columnWidths[column.key]}}/>)}</colgroup>
+            <thead><tr>{[t.date,copy.projectSite,copy.in,copy.out,t.hours,copy.entry].map((label,index)=>{const key=TIMESHEET_COLUMNS[index].key;return <th key={key}>{label}<ColumnResizer label={`${label} · ${copy.resizeHint}`} width={columnWidths[key]} onResize={(width)=>resizeColumn(key,width)} onReset={()=>autoFitColumn(key)}/></th>})}<th><span className="sr-only">{t.action}</span></th></tr></thead>
             <tbody>{rows.map((row,index)=>{
               const firstOfDay=index===0||rows[index-1].date!==row.date;
               const duration=durations.get(row.key);

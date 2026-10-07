@@ -686,7 +686,6 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .timesheet-card { overflow: hidden; }
 .timesheet-card > .card-heading { padding: 16px 18px 12px; }
 .timesheet-grid-scroll { min-width: 0; max-height: max(360px, calc(100vh - 330px)); margin: 0; padding: 0; overflow: auto; border: 0; border-top: 1px solid #e5eae7; }
-.timesheet-grid { min-width: 700px; }
 .timesheet-grid thead th { position: sticky; top: 0; z-index: 2; border-top: 0; }
 .timesheet-grid th, .timesheet-grid td { height: 46px; padding: 4px 8px; border-right: 1px solid #edf1ef; vertical-align: middle; }
 .timesheet-grid th:last-child, .timesheet-grid td:last-child { border-right: 0; }
@@ -703,13 +702,15 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .timesheet-date small { color: var(--muted); font-size: 11px; font-weight: 700; }
 .timesheet-date.continued { padding-left: 4px; color: #a8b5b0; font-size: 15px; }
 .timesheet-grid { table-layout: fixed; }
-.timesheet-grid tr > :nth-child(1) { width: 100px; }
-.timesheet-grid tr > :nth-child(3) { width: 84px; }
-.timesheet-grid tr > :nth-child(4) { width: 112px; }
-.timesheet-grid tr > :nth-child(5) { width: 60px; }
-.timesheet-grid tr > :nth-child(6) { width: 98px; white-space: normal; }
-.timesheet-grid tr > :nth-child(7) { width: 84px; }
-.timesheet-issue-row > td[colspan] { width: auto; white-space: normal; }
+.timesheet-grid td { overflow: hidden; }
+.timesheet-grid td:nth-child(6) { white-space: normal; }
+.timesheet-grid .session-status-cell { flex-wrap: wrap; row-gap: 4px; }
+.timesheet-issue-row > td[colspan] { white-space: normal; }
+.timesheet-grid thead th { overflow: hidden; text-overflow: ellipsis; }
+.column-resizer { position: absolute; top: 0; right: 0; z-index: 3; width: 9px; height: 100%; padding: 0; border: 0; background: transparent; cursor: col-resize; touch-action: none; }
+.column-resizer::after { content: ""; position: absolute; top: 22%; bottom: 22%; right: 3px; width: 2px; border-radius: 2px; background: #d3ddd8; transition: background .15s; }
+.column-resizer:hover::after, .column-resizer:focus-visible::after { background: var(--green); }
+.column-resizer:focus-visible { outline: 0; }
 .timesheet-issue-row > th, .timesheet-issue-row > td { height: auto !important; padding-top: 0 !important; padding-bottom: 9px !important; border-top: 0 !important; background: #fdf2ef !important; }
 .timesheet-issue-row > th { box-shadow: inset 3px 0 0 #c4685a; }
 .timesheet-grid td:nth-child(2) select { width: 100%; text-overflow: ellipsis; height: 32px; border-color: transparent; background: transparent; }
