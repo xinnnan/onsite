@@ -1,5 +1,6 @@
 import "server-only";
 import { fetchAttendanceSessions, type AttendanceFilters } from "@/lib/admin-data";
+import { summarizeReportProjects } from "@/lib/report-projects";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, localDateKey, safeTimeZone } from "@/lib/timezones";
 
@@ -74,6 +75,19 @@ export async function buildReportData(filters: AttendanceFilters) {
     current.seconds += seconds;
     workers.set(key, current);
   }
+  const projects = summarizeReportProjects(sessions.map((row) => {
+    const snapshot = getSessionSnapshot(row);
+    return {
+      projectId: String(row.project_id),
+      customerName: snapshot.customerName,
+      projectName: snapshot.projectName,
+      siteName: snapshot.siteName,
+      address: snapshot.address,
+      timezone: snapshot.timezone,
+      localDate: localDateKey(row.check_in_time, snapshot.timezone),
+      seconds: Number(row.duration_seconds || 0),
+    };
+  }));
   const attendanceCompanies = Array.from(workers.values()).map((row) => row.company).filter(Boolean);
   const companyNames = [...new Set(attendanceCompanies.length ? attendanceCompanies : assignedCompanies)];
   return {
@@ -88,6 +102,7 @@ export async function buildReportData(filters: AttendanceFilters) {
       total_work_days: workDays.size,
       incomplete_sessions: incomplete,
     },
+    projects,
     personnel: Array.from(workers.values()).map((row) => ({ name: row.name, company: row.company, days_on_site: row.days.size, hours: Number((row.seconds / 3600).toFixed(2)) })),
   };
 }
