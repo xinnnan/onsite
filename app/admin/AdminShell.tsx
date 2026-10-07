@@ -9,7 +9,7 @@ import {
   Save, Search, SlidersHorizontal, Table2, Trash2, Undo2, Upload, Users, UserRoundCheck, Wand2, X,
   CalendarRange,
 } from "lucide-react";
-import { ClipboardEvent, DragEvent, FormEvent, KeyboardEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ClipboardEvent, DragEvent, FormEvent, Fragment, KeyboardEvent, ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { intlLocales, type Locale, useLanguage } from "@/app/lib/use-language";
@@ -511,9 +511,10 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
     flash(failedCount?copy.partial(requests.length-failedCount,failedCount):copy.saved(requests.length));
   }
 
+  function rowProblem(row:TimesheetRow){return rowErrors[row.key]||(issues[row.key]?issueMessage(issues[row.key]):"");}
+
   function entryCell(row:TimesheetRow){
-    const problem=rowErrors[row.key]||(issues[row.key]?issueMessage(issues[row.key]):"");
-    if(problem)return <span className="timesheet-issue"><AlertTriangle size={14}/>{problem}</span>;
+    if(rowProblem(row))return <span className="timesheet-issue"><AlertTriangle size={14}/></span>;
     if(row.locked)return <span className="timesheet-muted">{copy.locked}</span>;
     if(dirtyKeys.has(row.key))return <span className={`timesheet-change ${row.original?"edited":"new"}`}>{row.original?copy.edited:copy.newEntry}</span>;
     if(!row.original)return <span className="timesheet-muted">—</span>;
@@ -554,8 +555,9 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
               const overnight=Boolean(checkIn&&checkOut&&checkOut<=checkIn);
               const knownProject=projects.some((project)=>project.id===row.projectId);
               const removable=!row.original&&(rows.filter((other)=>other.date===row.date).length>1||dirtyKeys.has(row.key));
-              const className=[firstOfDay?"day-start":"",isWeekend(row.date)?"weekend":"",dirtyKeys.has(row.key)?"dirty":"",issues[row.key]||rowErrors[row.key]?"invalid":"",row.locked?"locked":""].filter(Boolean).join(" ");
-              return <tr key={row.key} className={className}>
+              const problem=rowProblem(row);
+              const className=[firstOfDay?"day-start":"",isWeekend(row.date)?"weekend":"",dirtyKeys.has(row.key)?"dirty":"",problem?"invalid":"",row.locked?"locked":""].filter(Boolean).join(" ");
+              return <Fragment key={row.key}><tr className={className}>
                 <th scope="row">{firstOfDay?<span className="timesheet-date"><strong>{row.date}</strong><small>{weekdayFormat.format(new Date(`${row.date}T00:00:00Z`))}</small></span>:<span className="timesheet-date continued" title={row.date}>↳</span>}</th>
                 <td><select aria-label={`${copy.projectSite} ${row.date}`} value={row.projectId} disabled={row.locked} onChange={(event)=>updateRow(row.key,{projectId:event.target.value})}>{!row.projectId&&<option value="">—</option>}{row.projectId&&!knownProject&&<option value={row.projectId}>{row.projectName||row.projectId}{row.siteName?` · ${row.siteName}`:""}</option>}{projects.map((project)=><option key={project.id} value={project.id}>{project.project_name}{project.site_name?` · ${project.site_name}`:""}</option>)}</select><small>{rowTimeZone(row,projectZones)}</small></td>
                 {(["checkIn","checkOut"] as const).map((field)=><td key={field}><div className="timesheet-time"><input data-timesheet-cell={`${field}-${index}`} aria-label={`${field==="checkIn"?copy.in:copy.out} ${row.date}`} value={row[field]} placeholder="--:--" disabled={row.locked} autoComplete="off" spellCheck={false} onChange={(event)=>updateRow(row.key,{[field]:event.target.value})} onBlur={(event)=>{const normalized=normalizeTimeInput(event.target.value);if(normalized&&normalized!==row[field])updateRow(row.key,{[field]:normalized})}} onKeyDown={(event)=>cellKeyDown(event,index,field)} onPaste={(event)=>cellPaste(event,row,field)}/>{field==="checkOut"&&overnight&&<span className="next-day-badge" title={copy.nextDay}>+1</span>}</div></td>)}
@@ -566,7 +568,7 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
                   {removable&&<button type="button" title={copy.removeShift} aria-label={copy.removeShift} onClick={()=>setRows((current)=>removeShiftRow(current,row.key,activeDefaultProjectId))}><X size={15}/></button>}
                   {row.sessionId&&<Link href={`/admin/attendance/${row.sessionId}`} title={copy.openRecord} aria-label={copy.openRecord} onClick={(event)=>{if(!canDiscard())event.preventDefault()}}><ChevronRight size={16}/></Link>}
                 </div></td>
-              </tr>;
+              </tr>{problem&&<tr className="timesheet-issue-row"><th aria-hidden="true"/><td colSpan={6}><span className="timesheet-issue" role="alert"><AlertTriangle size={14}/>{problem}</span></td></tr>}</Fragment>;
             })}</tbody>
             <tfoot><tr><th>{copy.total}</th><td>{copy.daysWorked}: {daysWorked}</td><td/><td/><td className="mono">{(totalSeconds/3600).toFixed(2)}</td><td colSpan={2}/></tr></tfoot>
           </table>
@@ -574,8 +576,8 @@ function TimesheetView({data,loading,error,load,t,locale,flash}:{data:Row;loadin
       </article>
 
       {(dirtyCount>0||saving)&&<div className="timesheet-savebar" role="region" aria-label={copy.save}>
-        <div><strong>{saving?copy.saving(saving.done,saving.total):copy.unsaved(dirtyCount)}</strong>{issueCount>0&&!saving&&<span className="timesheet-issue"><AlertTriangle size={14}/>{copy.fixFirst(issueCount)}</span>}</div>
-        <label>{copy.reason}<input value={saveReason} maxLength={1000} disabled={Boolean(saving)} onChange={(event)=>setReason(event.target.value)}/></label>
+        <div className="timesheet-savebar-status"><strong>{saving?copy.saving(saving.done,saving.total):copy.unsaved(dirtyCount)}</strong>{issueCount>0&&!saving&&<span className="timesheet-issue"><AlertTriangle size={14}/>{copy.fixFirst(issueCount)}</span>}</div>
+        <label className="timesheet-savebar-reason">{copy.reason}<input value={saveReason} maxLength={1000} disabled={Boolean(saving)} onChange={(event)=>setReason(event.target.value)}/></label>
         <div className="timesheet-savebar-actions">
           <button type="button" className="secondary-button" disabled={Boolean(saving)||fetching} onClick={()=>{if(canDiscard()){setRowErrors({});void fetchRows(loaded);}}}><Undo2 size={16}/>{copy.discard}</button>
           <button type="button" className="admin-primary" disabled={Boolean(saving)||fetching||issueCount>0||!saveReason.trim()} onClick={()=>void save()}>{saving?<LoaderCircle className="spin" size={16}/>:<Save size={16}/>}{copy.save}</button>

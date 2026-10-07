@@ -54,6 +54,12 @@ PRD 的 33 项 MVP 验收标准均已实现并发布。远端 Supabase 已应用
 - `/auth/update-password` 支持正确域名的 Supabase Recovery 回调。
 - 响应式桌面/手机界面、Lint、TypeScript Production Build 和依赖审计。
 
+## 2026-10 增量功能
+
+- **报告中心 · 全部项目**：项目下拉新增“全部项目”，可按人员 + 期间导出跨项目报告。预览、PDF、Excel 显示“涉及项目”汇总（客户、项目、现场、时区、天数、工时），每日考勤增加项目列，时间仍按各项目当地时区；PDF 文件名为 `All-Projects_<期间>_<人员>.pdf`。
+- **考勤记录 · 工时表**：`/admin/attendance/timesheet` 新标签页。选择人员和任意日期范围，按天列出（空白日期显示空行，多班次显示多行），像 Excel 一样输入签到/签退（支持 `8`、`830`、`5:30pm`、从 Excel 粘贴、次日 +1、批量填充工作日）。新行通过管理员补录接口创建为人工核实记录，已有记录通过修正接口保存为 `MANUALLY_CORRECTED`；统一填写原因写入审计日志，失败行保留草稿和错误提示。
+- 纯逻辑位于 `lib/report-projects.ts` 与 `lib/timesheet.ts`，由 `npm run test:unit`（Node 内置测试）覆盖。
+
 ## 发布与运营检查
 
 - [x] Supabase 项目链接正确：`opjibbtimhnnanlhsaak`

@@ -150,7 +150,7 @@ export async function POST(request: Request) {
         h(Text,{style:styles.section},"DAILY ATTENDANCE"),
         h(View,{style:styles.table},
           allProjects
-            ? h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.aDate},"Local date"),h(Text,{style:styles.aWorker},"Worker"),h(Text,{style:styles.aProject},"Project"),h(Text,{style:styles.aTime},"In (project local)"),h(Text,{style:styles.aTime},"Out (project local)"),h(Text,{style:styles.aHours},"Hours"))
+            ? h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.aDate},"Local date"),h(Text,{style:styles.aWorker},"Worker"),h(Text,{style:styles.aProject},"Project"),h(Text,{style:styles.aTime},"In (local)"),h(Text,{style:styles.aTime},"Out (local)"),h(Text,{style:styles.aHours},"Hours"))
             : h(View,{style:[styles.row,styles.header]},h(Text,{style:styles.cDate},"Local date"),h(Text,{style:styles.cWorker},"Worker"),h(Text,{style:styles.cTime},"In (local)"),h(Text,{style:styles.cTime},"Out (local)"),h(Text,{style:styles.cHours},"Hours")),
           ...tableRows),
         summaryRows.length ? h(React.Fragment, null,
