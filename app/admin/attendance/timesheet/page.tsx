@@ -1,2 +1,8 @@
+import { requirePageRole } from "@/lib/page-auth";
 import AdminShell from "../../AdminShell";
-export default function AttendanceTimesheetPage() { return <AdminShell view="attendance-timesheet" />; }
+
+// Administrators only: managers are sent back to their overview.
+export default async function AttendanceTimesheetPage() {
+  await requirePageRole("ADMIN", "/admin");
+  return <AdminShell view="attendance-timesheet" />;
+}

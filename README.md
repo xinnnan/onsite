@@ -16,6 +16,7 @@
 - 水印包含人员、项目、客户、地址、项目时区时间、记录编号和管理员上传的项目地图
 - 原子 Check In / Check Out 数据库事务、单一 Open Session、自动工时与 18 小时 Long Session
 - Admin 人员、项目、地图、分配、考勤、手工修正和审计管理
+- 公司经理（Manager）：只读查看本公司在职人员的概览、人员、考勤记录和报告（预览、PDF、Excel、CSV）
 - Customer / Project / Worker / Company / Date / Status 考勤筛选
 - CSV、XLSX 和带可选照片附录的 PDF 客户报告
 - 历史项目字段与地图版本快照；项目后续编辑不会改变旧记录
@@ -31,7 +32,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-打开 `http://localhost:3000`。开发环境没有配置 Supabase 时会进入不持久化的演示模式：`admin` 开头的用户名进入 Admin，其余用户名进入 Worker。生产环境缺少 Supabase 配置时会关闭演示模式并返回配置错误。
+打开 `http://localhost:3000`。开发环境没有配置 Supabase 时会进入不持久化的演示模式：`admin` 开头的用户名进入 Admin，`manager` 开头的用户名进入公司经理视图，其余用户名进入 Worker。生产环境缺少 Supabase 配置时会关闭演示模式并返回配置错误。
 
 ## 环境变量
 
@@ -114,3 +115,5 @@ PDF 照片附录为控制 Serverless 内存最多包含筛选结果前 60 个 Wo
 - 地图使用不可变版本路径；事件保存完整项目快照。
 - 原图、水印图和项目地图均在 Private Buckets；Admin 通过 10 分钟 Signed URL 查看。
 - Admin 修正 Work Session 必须填写 Reason，旧值、新值和操作人写入 Audit Log。
+- 公司经理的范围是自己 Profile 的「公司」字段：只看到该公司 `ACTIVE` 的 Worker 及其考勤和报告，看不到其他公司和已停用人员；不能新建或编辑人员、修改角色/状态、重置密码、修正或删除考勤，也看不到项目管理、项目分配、工时表和审计日志。范围由服务端 API 强制执行。
+- 公司名称按完全一致匹配（区分大小写），经理与其人员的「公司」必须写法相同；经理角色必须填写公司（API 与数据库约束双重校验）。

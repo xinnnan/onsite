@@ -1,2 +1,8 @@
+import { requirePageRole } from "@/lib/page-auth";
 import AdminShell from "../AdminShell";
-export default function AssignmentsPage() { return <AdminShell view="assignments" />; }
+
+// Administrators only: managers are sent back to their overview.
+export default async function AssignmentsPage() {
+  await requirePageRole("ADMIN", "/admin");
+  return <AdminShell view="assignments" />;
+}

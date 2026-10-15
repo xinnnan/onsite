@@ -1,12 +1,15 @@
 import "server-only";
-import { fetchAttendanceSessions, type AttendanceFilters } from "@/lib/admin-data";
+import { ALL_ACCESS, type AccessScope } from "@/lib/access-scope";
+import { assertReportTargetsInScope, fetchAttendanceSessions, type AttendanceFilters } from "@/lib/admin-data";
 import { summarizeReportProjects } from "@/lib/report-projects";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, localDateKey, safeTimeZone } from "@/lib/timezones";
 
 type SnapshotSource = Record<string, string | number | null | undefined>;
 
-async function fetchReportCompanyNames(filters: AttendanceFilters) {
+async function fetchReportCompanyNames(filters: AttendanceFilters, scope: AccessScope) {
+  // A project's assignments span companies, so a manager's report only ever names their own.
+  if (scope.kind === "COMPANY") return [scope.company];
   const admin = createSupabaseAdminClient();
   if (filters.workerId) {
     const { data, error } = await admin.from("profiles").select("company").eq("id", filters.workerId).maybeSingle();
@@ -46,16 +49,17 @@ export function getSessionSnapshot(row: Record<string, unknown>) {
   };
 }
 
-export async function buildReportData(filters: AttendanceFilters) {
+export async function buildReportData(filters: AttendanceFilters, scope: AccessScope = ALL_ACCESS) {
+  await assertReportTargetsInScope(scope, filters);
   const admin = createSupabaseAdminClient();
-  const sessionsPromise = fetchAttendanceSessions(filters);
+  const sessionsPromise = fetchAttendanceSessions(filters, scope);
   const projectPromise = filters.projectId
     ? admin.from("projects").select("*").eq("id", filters.projectId).maybeSingle()
     : Promise.resolve({ data: null, error: null });
   const workerPromise = filters.workerId
     ? admin.from("profiles").select("id,display_name,company").eq("id", filters.workerId).maybeSingle()
     : Promise.resolve({ data: null, error: null });
-  const [sessions, projectResult, workerResult, assignedCompanies] = await Promise.all([sessionsPromise, projectPromise, workerPromise, fetchReportCompanyNames(filters)]);
+  const [sessions, projectResult, workerResult, assignedCompanies] = await Promise.all([sessionsPromise, projectPromise, workerPromise, fetchReportCompanyNames(filters, scope)]);
   if (projectResult.error) throw projectResult.error;
   if (workerResult.error) throw workerResult.error;
   const workers = new Map<string, { name: string; company: string; days: Set<string>; seconds: number }>();

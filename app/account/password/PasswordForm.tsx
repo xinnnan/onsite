@@ -6,6 +6,7 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { useLanguage } from "@/app/lib/use-language";
+import type { UserRole } from "@/lib/types";
 
 const content = {
   zh: {
@@ -46,7 +47,7 @@ const content = {
   },
 } as const;
 
-type Props = { displayName: string; role: "ADMIN" | "WORKER" };
+type Props = { displayName: string; role: UserRole };
 
 export default function PasswordForm({ displayName, role }: Props) {
   const router = useRouter();
@@ -57,7 +58,7 @@ export default function PasswordForm({ displayName, role }: Props) {
   const [error, setError] = useState("");
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
-  const home = role === "ADMIN" ? "/admin" : "/worker";
+  const home = role === "ADMIN" || role === "MANAGER" ? "/admin" : "/worker";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

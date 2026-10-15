@@ -10,7 +10,8 @@ export async function POST(request: Request) {
 
     if (!isSupabaseConfigured()) {
       if (!isDemoMode()) return NextResponse.json({ error: "SUPABASE_NOT_CONFIGURED" }, { status: 503 });
-      const role = body.username.toLowerCase().startsWith("admin") ? "ADMIN" : "WORKER";
+      const username = body.username.toLowerCase();
+      const role = username.startsWith("admin") ? "ADMIN" : username.startsWith("manager") ? "MANAGER" : "WORKER";
       const response = NextResponse.json({ ok: true, role, demo: true });
       response.cookies.set("onsite-demo-role", role, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 60 * 60 * 8 });
       return response;

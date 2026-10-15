@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { requireAuth } from "@/lib/auth-context";
+import { fetchVisibleProjects, fetchVisibleWorkers } from "@/lib/admin-data";
+import { requireAuth, requireScopedAccess } from "@/lib/auth-context";
 import { writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -19,30 +20,23 @@ function uniqueIds(value: unknown) {
 
 export async function GET(request: Request) {
   try {
-    const { demo } = await requireAuth("ADMIN");
+    const { demo, scope } = await requireScopedAccess();
     if (demo) return NextResponse.json({ assignments: [], users: [], projects: [], demo: true });
     const activeOnly = new URL(request.url).searchParams.get("active_only") === "true";
     const admin = createSupabaseAdminClient();
-    let usersQuery = admin.from("profiles").select("id,username,display_name,company,worker_type,status").eq("role", "WORKER");
-    let projectsQuery = admin.from("projects").select("id,project_code,project_name,customer_name,site_name,timezone,status");
-    if (activeOnly) {
-      usersQuery = usersQuery.eq("status", "ACTIVE");
-      projectsQuery = projectsQuery.eq("status", "ACTIVE");
-    }
     const [assignments, users, projects] = await Promise.all([
       admin.from("project_assignments").select("*,user:profiles(id,username,display_name,company,status),project:projects(id,project_code,project_name,status)").order("assigned_at", { ascending: false }),
-      usersQuery.order("display_name"),
-      projectsQuery.order("project_name"),
+      fetchVisibleWorkers(scope, "id,username,display_name,company,worker_type,status", { activeOnly }),
+      fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,site_name,timezone,status", { activeOnly }),
     ]);
     if (assignments.error) throw assignments.error;
-    if (users.error) throw users.error;
-    if (projects.error) throw projects.error;
-    const activeUserIds = new Set((users.data || []).map((user) => user.id));
-    const activeProjectIds = new Set((projects.data || []).map((project) => project.id));
-    const visibleAssignments = activeOnly
-      ? (assignments.data || []).filter((assignment) => activeUserIds.has(assignment.user_id) && activeProjectIds.has(assignment.project_id))
+    const visibleUserIds = new Set(users.map((user) => user.id));
+    const visibleProjectIds = new Set(projects.map((project) => project.id));
+    // Managers only ever see their own workers' assignments.
+    const visibleAssignments = activeOnly || scope.kind === "COMPANY"
+      ? (assignments.data || []).filter((assignment) => visibleUserIds.has(assignment.user_id) && visibleProjectIds.has(assignment.project_id))
       : assignments.data || [];
-    return NextResponse.json({ assignments: visibleAssignments, users: users.data || [], projects: projects.data || [] });
+    return NextResponse.json({ assignments: visibleAssignments, users, projects });
   } catch (error) { return apiErrorResponse(error); }
 }
 
