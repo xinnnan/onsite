@@ -40,20 +40,26 @@ const projectFields = z.object({
   city: z.string().trim().min(1).max(100),
   state: z.string().trim().max(100).nullable().optional(),
   postal_code: z.string().trim().max(30).nullable().optional(),
-  country: z.string().trim().min(2).max(100).default("United States"),
+  country: z.string().trim().min(2).max(100),
   timezone: z.string().trim().min(3).max(100).refine(isValidTimeZone, "INVALID_TIMEZONE"),
   latitude: z.number().min(-90).max(90).nullable().optional(),
   longitude: z.number().min(-180).max(180).nullable().optional(),
   start_date: z.string().date().nullable().optional(),
   end_date: z.string().date().nullable().optional(),
-  status: z.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]).default("ACTIVE"),
+  status: z.enum(["ACTIVE", "COMPLETED", "ARCHIVED"]),
+  company: z.string().trim().max(120).nullable().optional(),
 });
 
 function coordinatePairIsValid(value: { latitude?: number | null; longitude?: number | null }) {
   return (value.latitude == null) === (value.longitude == null);
 }
 
-export const projectSchema = projectFields.refine(coordinatePairIsValid, {
+// Defaults belong to creation only: Zod 4 applies them inside .partial() too, which would reset
+// country and status on every partial update.
+export const projectSchema = projectFields.extend({
+  country: projectFields.shape.country.default("United States"),
+  status: projectFields.shape.status.default("ACTIVE"),
+}).refine(coordinatePairIsValid, {
   message: "LATITUDE_AND_LONGITUDE_REQUIRED_TOGETHER",
   path: ["latitude"],
 });

@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_ACCESS, accessScopeFor, isWorkerInScope, normalizeCompany, roleCompanyError } from "../lib/access-scope.ts";
+import { ALL_ACCESS, accessScopeFor, canManageProject, isWorkerInScope, normalizeCompany, roleCompanyError } from "../lib/access-scope.ts";
 
 const acme = { kind: "COMPANY", company: "Acme Robotics" } as const;
 
@@ -43,6 +43,27 @@ describe("isWorkerInScope", () => {
     assert.equal(isWorkerInScope(acme, { ...worker, role: "ADMIN" }), false);
     assert.equal(isWorkerInScope(acme, null), false);
     assert.equal(isWorkerInScope(acme, undefined), false);
+  });
+});
+
+describe("canManageProject", () => {
+  test("lets administrators manage every project, including shared ones", () => {
+    assert.equal(canManageProject(ALL_ACCESS, { company: "Other Co" }), true);
+    assert.equal(canManageProject(ALL_ACCESS, { company: null }), true);
+  });
+
+  test("lets managers manage only their company's projects", () => {
+    assert.equal(canManageProject(acme, { company: "Acme Robotics" }), true);
+    assert.equal(canManageProject(acme, { company: " Acme Robotics " }), true);
+  });
+
+  test("keeps shared, other-company and missing projects away from managers", () => {
+    assert.equal(canManageProject(acme, { company: null }), false);
+    assert.equal(canManageProject(acme, { company: "" }), false);
+    assert.equal(canManageProject(acme, {}), false);
+    assert.equal(canManageProject(acme, { company: "Other Co" }), false);
+    assert.equal(canManageProject(acme, { company: "acme robotics" }), false);
+    assert.equal(canManageProject(acme, null), false);
   });
 });
 

@@ -32,3 +32,12 @@ export function isWorkerInScope(scope: AccessScope, worker: ScopedWorker | null 
   if (scope.kind === "ALL") return true;
   return worker?.role === "WORKER" && worker.status === "ACTIVE" && normalizeCompany(worker.company) === scope.company;
 }
+
+/**
+ * Whether the scope may edit a project and change its assignments. A project's company owns it;
+ * projects without one stay with administrators, so managers never edit shared projects.
+ */
+export function canManageProject(scope: AccessScope, project: { company?: string | null } | null | undefined) {
+  if (scope.kind === "ALL") return true;
+  return Boolean(project) && normalizeCompany(project?.company) === scope.company;
+}

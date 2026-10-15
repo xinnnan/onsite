@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { fetchVisibleProjects, fetchVisibleWorkers } from "@/lib/admin-data";
-import { requireAuth, requireScopedAccess } from "@/lib/auth-context";
-import { writeAuditLog } from "@/lib/audit";
+import { assertAssignmentTargets, fetchVisibleProjects, fetchVisibleWorkers } from "@/lib/admin-data";
+import { requireScopedAccess } from "@/lib/auth-context";
+import { actorTitle, writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type AssignmentPayload = {
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const [assignments, users, projects] = await Promise.all([
       admin.from("project_assignments").select("*,user:profiles(id,username,display_name,company,status),project:projects(id,project_code,project_name,status)").order("assigned_at", { ascending: false }),
       fetchVisibleWorkers(scope, "id,username,display_name,company,worker_type,status", { activeOnly }),
-      fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,site_name,timezone,status", { activeOnly }),
+      fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,site_name,timezone,status,company", { activeOnly }),
     ]);
     if (assignments.error) throw assignments.error;
     const visibleUserIds = new Set(users.map((user) => user.id));
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { profile: adminProfile, demo } = await requireAuth("ADMIN");
+    const { profile: adminProfile, demo, scope } = await requireScopedAccess();
     const body = await request.json() as AssignmentPayload;
     const isBatch = Array.isArray(body.user_ids) || Array.isArray(body.project_ids);
     if (isBatch) {
@@ -53,18 +53,8 @@ export async function POST(request: Request) {
         throw new ApiError(400, "INVALID_BATCH_ASSIGNMENT_PAYLOAD");
       }
       if (demo) return NextResponse.json({ ok: true, updated: pairCount, demo: true });
+      await assertAssignmentTargets(scope, { userIds, projectIds, assigned: body.assigned, errorCode: "INVALID_BATCH_ASSIGNMENT_TARGET" });
       const admin = createSupabaseAdminClient();
-      if (body.assigned) {
-        const [workers, projects] = await Promise.all([
-          admin.from("profiles").select("id").eq("role", "WORKER").eq("status", "ACTIVE").in("id", userIds),
-          admin.from("projects").select("id").eq("status", "ACTIVE").in("id", projectIds),
-        ]);
-        if (workers.error) throw workers.error;
-        if (projects.error) throw projects.error;
-        if ((workers.data?.length || 0) !== userIds.length || (projects.data?.length || 0) !== projectIds.length) {
-          throw new ApiError(400, "INVALID_BATCH_ASSIGNMENT_TARGET");
-        }
-      }
       const timestamp = new Date().toISOString();
       let updated = 0;
       if (body.assigned) {
@@ -89,27 +79,19 @@ export async function POST(request: Request) {
         entityType: "PROJECT_ASSIGNMENT_BATCH",
         entityId: adminProfile.id,
         newValue: { user_ids: userIds, project_ids: projectIds, requested_pairs: pairCount, updated },
-        reason: "Administrator performed a bulk project assignment update",
+        reason: `${actorTitle(adminProfile.role)} performed a bulk project assignment update`,
       });
       return NextResponse.json({ ok: true, updated, requested_pairs: pairCount });
     }
     if (!body.user_id || !body.project_id || typeof body.assigned !== "boolean") throw new ApiError(400, "INVALID_ASSIGNMENT_PAYLOAD");
     if (demo) return NextResponse.json({ ok: true, demo: true });
+    await assertAssignmentTargets(scope, { userIds: [body.user_id], projectIds: [body.project_id], assigned: body.assigned, errorCode: "INVALID_ASSIGNMENT_TARGET" });
     const admin = createSupabaseAdminClient();
-    if (body.assigned) {
-      const [worker, project] = await Promise.all([
-        admin.from("profiles").select("id").eq("id", body.user_id).eq("role", "WORKER").eq("status", "ACTIVE").maybeSingle(),
-        admin.from("projects").select("id").eq("id", body.project_id).eq("status", "ACTIVE").maybeSingle(),
-      ]);
-      if (worker.error) throw worker.error;
-      if (project.error) throw project.error;
-      if (!worker.data || !project.data) throw new ApiError(400, "INVALID_ASSIGNMENT_TARGET");
-    }
     const { data: oldValue } = await admin.from("project_assignments").select("*").eq("user_id", body.user_id).eq("project_id", body.project_id).maybeSingle();
     const next = body.assigned ? { status: "ACTIVE", assigned_at: new Date().toISOString(), removed_at: null } : { status: "REMOVED", removed_at: new Date().toISOString() };
     const { data, error } = await admin.from("project_assignments").upsert({ user_id: body.user_id, project_id: body.project_id, ...next }, { onConflict: "user_id,project_id" }).select().single();
     if (error || !data) throw new ApiError(409, "ASSIGNMENT_UPDATE_FAILED", error?.message);
-    await writeAuditLog({ adminUserId: adminProfile.id, action: body.assigned ? "PROJECT_ASSIGNMENT_ADDED" : "PROJECT_ASSIGNMENT_REMOVED", entityType: "PROJECT_ASSIGNMENT", entityId: data.id, oldValue, newValue: data, reason: "Administrator updated project assignment" });
+    await writeAuditLog({ adminUserId: adminProfile.id, action: body.assigned ? "PROJECT_ASSIGNMENT_ADDED" : "PROJECT_ASSIGNMENT_REMOVED", entityType: "PROJECT_ASSIGNMENT", entityId: data.id, oldValue, newValue: data, reason: `${actorTitle(adminProfile.role)} updated project assignment` });
     return NextResponse.json({ assignment: data });
   } catch (error) { return apiErrorResponse(error); }
 }

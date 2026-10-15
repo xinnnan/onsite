@@ -1,5 +1,11 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import type { UserRole } from "@/lib/types";
+
+/** Names who acted in audit reasons, now that managers make some changes too. */
+export function actorTitle(role: UserRole) {
+  return role === "MANAGER" ? "Manager" : "Administrator";
+}
 
 export async function writeAuditLog({ adminUserId, action, entityType, entityId, oldValue, newValue, reason }: {
   adminUserId: string;
