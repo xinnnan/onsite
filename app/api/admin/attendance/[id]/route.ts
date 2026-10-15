@@ -1,31 +1,33 @@
 import { NextResponse } from "next/server";
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { requireAuth } from "@/lib/auth-context";
-import { signAttendancePhoto } from "@/lib/admin-data";
+import { requireScopedAccess } from "@/lib/auth-context";
+import { fetchVisibleProjects, keepInScope, scopeToWorkers, signAttendancePhoto } from "@/lib/admin-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { demo } = await requireAuth("ADMIN");
+    const { demo, scope } = await requireScopedAccess();
     const { id } = await params;
     if (demo) return NextResponse.json({ session: null, demo: true });
     const admin = createSupabaseAdminClient();
-    const [{ data, error }, projects] = await Promise.all([
-      admin.from("work_sessions").select(`
-        *, worker:profiles!work_sessions_user_id_fkey(*), project:projects!work_sessions_project_id_fkey(*),
+    const [{ data: rows, error }, projects] = await Promise.all([
+      scopeToWorkers(admin.from("work_sessions").select(`
+        *, worker:profiles!work_sessions_user_id_fkey!inner(*), project:projects!work_sessions_project_id_fkey(*),
         check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(*),
         check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(*)
-      `).eq("id", id).single(),
-      admin.from("projects").select("id,project_code,project_name,customer_name,timezone,status").eq("status", "ACTIVE").order("project_name"),
+      `).eq("id", id), scope),
+      // Only administrators correct records, so only they need the project picker.
+      scope.kind === "ALL" ? fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,timezone,status") : Promise.resolve([]),
     ]);
+    // A record outside a manager's scope looks exactly like one that does not exist.
+    const data = keepInScope(scope, rows || [])[0];
     if (error || !data) throw new ApiError(404, "SESSION_NOT_FOUND");
-    if (projects.error) throw projects.error;
     const checkInEvent = Array.isArray(data.check_in_event) ? data.check_in_event[0] : data.check_in_event;
     const checkOutEvent = Array.isArray(data.check_out_event) ? data.check_out_event[0] : data.check_out_event;
     const [checkInUrl, checkOutUrl] = await Promise.all([
       signAttendancePhoto("attendance-watermarked", checkInEvent?.watermarked_photo_path),
       signAttendancePhoto("attendance-watermarked", checkOutEvent?.watermarked_photo_path),
     ]);
-    return NextResponse.json({ session: { ...data, check_in_photo_url: checkInUrl, check_out_photo_url: checkOutUrl }, projects: projects.data || [] });
+    return NextResponse.json({ session: { ...data, check_in_photo_url: checkInUrl, check_out_photo_url: checkOutUrl }, projects });
   } catch (error) { return apiErrorResponse(error); }
 }

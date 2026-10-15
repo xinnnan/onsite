@@ -5,6 +5,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LanguageSelect from "@/app/components/LanguageSelect";
 import { useLanguage } from "@/app/lib/use-language";
+import type { UserRole } from "@/lib/types";
 
 const copy = {
   zh: {
@@ -99,9 +100,9 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username: form.get("username"), password: form.get("password") }),
       });
-      const result = await response.json() as { role?: "ADMIN" | "WORKER" };
+      const result = await response.json() as { role?: UserRole };
       if (!response.ok) throw new Error("LOGIN_FAILED");
-      router.replace(`${result.role === "ADMIN" ? "/admin" : "/worker"}?lang=${locale}`);
+      router.replace(`${result.role === "ADMIN" || result.role === "MANAGER" ? "/admin" : "/worker"}?lang=${locale}`);
       router.refresh();
     } catch {
       setError(t.loginError);

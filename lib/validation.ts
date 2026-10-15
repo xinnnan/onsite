@@ -7,14 +7,14 @@ export const workerCreateSchema = z.object({
   display_name: z.string().trim().min(2).max(100),
   company: z.string().trim().max(120).nullable().optional(),
   worker_type: z.enum(["EMPLOYEE", "CONTRACTOR", "SUBCONTRACTOR", "PARTNER", "TEMPORARY_WORKER"]).default("EMPLOYEE"),
-  role: z.enum(["WORKER", "ADMIN"]).default("WORKER"),
+  role: z.enum(["WORKER", "MANAGER", "ADMIN"]).default("WORKER"),
 });
 
 export const workerUpdateSchema = z.object({
   display_name: z.string().trim().min(2).max(100).optional(),
   company: z.string().trim().max(120).nullable().optional(),
   worker_type: z.enum(["EMPLOYEE", "CONTRACTOR", "SUBCONTRACTOR", "PARTNER", "TEMPORARY_WORKER"]).optional(),
-  role: z.enum(["WORKER", "ADMIN"]).optional(),
+  role: z.enum(["WORKER", "MANAGER", "ADMIN"]).optional(),
   status: z.enum(["ACTIVE", "DISABLED"]).optional(),
 }).refine((value) => Object.keys(value).length > 0, "NO_CHANGES");
 

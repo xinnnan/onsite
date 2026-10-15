@@ -1,5 +1,5 @@
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { requireAuth } from "@/lib/auth-context";
+import { requireScopedAccess } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
 import { signPrivateAsset } from "@/lib/admin-data";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
@@ -39,7 +39,7 @@ function demoPreview(body: PreviewRequest) {
 
 export async function POST(request: Request) {
   try {
-    const { demo } = await requireAuth("ADMIN");
+    const { demo, scope } = await requireScopedAccess();
     const body = await request.json() as PreviewRequest;
     if (body.start && body.end && body.start > body.end) throw new ApiError(400, "INVALID_REPORT_PERIOD");
     if (demo) return Response.json(demoPreview(body), { headers: { "cache-control": "no-store" } });
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       workerId: body.worker_id,
       start: body.start,
       end: body.end,
-    });
+    }, scope);
     const allProjects = !body.project_id;
     const first = report.sessions[0];
     const snapshot = first ? getSessionSnapshot(first) : null;

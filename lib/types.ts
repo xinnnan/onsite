@@ -1,4 +1,4 @@
-export type UserRole = "WORKER" | "ADMIN";
+export type UserRole = "WORKER" | "MANAGER" | "ADMIN";
 export type ProfileStatus = "ACTIVE" | "DISABLED";
 export type WorkerType = "EMPLOYEE" | "CONTRACTOR" | "SUBCONTRACTOR" | "PARTNER" | "TEMPORARY_WORKER";
 export type ProjectStatus = "ACTIVE" | "COMPLETED" | "ARCHIVED";

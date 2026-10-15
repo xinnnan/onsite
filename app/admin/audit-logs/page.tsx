@@ -1,2 +1,8 @@
+import { requirePageRole } from "@/lib/page-auth";
 import AdminShell from "../AdminShell";
-export default function AuditPage() { return <AdminShell view="audit" />; }
+
+// Administrators only: managers are sent back to their overview.
+export default async function AuditPage() {
+  await requirePageRole("ADMIN", "/admin");
+  return <AdminShell view="audit" />;
+}

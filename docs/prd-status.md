@@ -59,12 +59,14 @@ PRD 的 33 项 MVP 验收标准均已实现并发布。远端 Supabase 已应用
 - **报告中心 · 全部项目**：项目下拉新增“全部项目”，可按人员 + 期间导出跨项目报告。预览、PDF、Excel 显示“涉及项目”汇总（客户、项目、现场、时区、天数、工时），每日考勤增加项目列，时间仍按各项目当地时区；PDF 文件名为 `All-Projects_<期间>_<人员>.pdf`。
 - **考勤记录 · 工时表**：`/admin/attendance/timesheet` 新标签页。选择人员和任意日期范围，按天列出（空白日期显示空行，多班次显示多行），像 Excel 一样输入签到/签退（支持 `8`、`830`、`5:30pm`、从 Excel 粘贴、次日 +1、批量填充工作日）。新行通过管理员补录接口创建为人工核实记录，已有记录通过修正接口保存为 `MANUALLY_CORRECTED`；统一填写原因写入审计日志，失败行保留草稿和错误提示。
 - 纯逻辑位于 `lib/report-projects.ts` 与 `lib/timesheet.ts`，由 `npm run test:unit`（Node 内置测试）覆盖。
+- **公司经理角色（MANAGER）**：Admin 在人员管理中把角色设为 MANAGER 并填写公司。经理只读访问概览、人员、考勤记录/详情和报告中心，数据限定为本公司 `ACTIVE` 的 Worker；其他公司、已停用人员、项目管理、项目分配、工时表和审计日志均不可见，所有写操作仍只允许 Admin。范围逻辑见 `lib/access-scope.ts`（单元测试覆盖），查询过滤见 `lib/admin-data.ts`。迁移 `202610150001_manager_role.sql` 新增角色并要求经理必须填写公司。
 
 ## 发布与运营检查
 
 - [x] Supabase 项目链接正确：`opjibbtimhnnanlhsaak`
 - [x] 数据库迁移 `202608170001` 已应用
 - [x] 数据库迁移 `202608170002` 已应用
+- [ ] 数据库迁移 `202610150001`（公司经理角色）已应用
 - [x] Supabase Site URL 为 `https://onsite.supportportal.ai`
 - [x] Recovery Redirect allow-list 包含正式回调地址
 - [x] 本地 `npm run lint` 通过

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { requireAuth } from "@/lib/auth-context";
+import { roleCompanyError } from "@/lib/access-scope";
+import { requireAuth, requireScopedAccess } from "@/lib/auth-context";
 import { writeAuditLog } from "@/lib/audit";
 import { usernameToInternalEmail } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -8,10 +9,13 @@ import { parseBody, workerCreateSchema } from "@/lib/validation";
 
 export async function GET() {
   try {
-    const { demo } = await requireAuth("ADMIN");
+    const { demo, scope } = await requireScopedAccess();
     if (demo) return NextResponse.json({ users: [] , demo: true });
     const admin = createSupabaseAdminClient();
-    const { data, error } = await admin.from("profiles").select("*, project_assignments(id,status,project:projects(id,project_name,status))").order("display_name");
+    let query = admin.from("profiles").select("*, project_assignments(id,status,project:projects(id,project_name,status))");
+    // Managers get a read-only list of their own company's active workers.
+    if (scope.kind === "COMPANY") query = query.eq("role", "WORKER").eq("status", "ACTIVE").eq("company", scope.company);
+    const { data, error } = await query.order("display_name");
     if (error) throw error;
     return NextResponse.json({ users: data || [] });
   } catch (error) { return apiErrorResponse(error); }
@@ -21,6 +25,8 @@ export async function POST(request: Request) {
   try {
     const { profile: adminProfile, demo } = await requireAuth("ADMIN");
     const body = parseBody(workerCreateSchema, await request.json());
+    const companyError = roleCompanyError(body.role, body.company);
+    if (companyError) throw new ApiError(400, companyError);
     if (demo) return NextResponse.json({ user: { id: crypto.randomUUID(), ...body, status: "ACTIVE" }, demo: true }, { status: 201 });
     const admin = createSupabaseAdminClient();
     const { data: authData, error: authError } = await admin.auth.admin.createUser({

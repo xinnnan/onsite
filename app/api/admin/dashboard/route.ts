@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { apiErrorResponse } from "@/lib/api";
-import { requireAuth } from "@/lib/auth-context";
+import { keepInScope, scopeToWorkers } from "@/lib/admin-data";
+import { requireScopedAccess } from "@/lib/auth-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
 
@@ -58,39 +59,45 @@ function liveDayRange(request: NextRequest, today: Date) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { demo } = await requireAuth("ADMIN");
+    const { demo, scope } = await requireScopedAccess();
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const range = selectedRange(request, start);
     const liveRange = liveDayRange(request, start);
     if (demo) return NextResponse.json({
-      stats: { currently_on_site: 1, checked_in_today: 2, checked_out_today: 1, complete_sessions: 1, missing_checkout: 0, exceptions: 0 },
+      // The manager figures match the demo records of the demo manager's company.
+      stats: scope.kind === "ALL"
+        ? { currently_on_site: 1, checked_in_today: 2, checked_out_today: 1, complete_sessions: 1, missing_checkout: 0, exceptions: 0 }
+        : { currently_on_site: 0, checked_in_today: 1, checked_out_today: 1, complete_sessions: 1, missing_checkout: 0, exceptions: 0 },
       stat_people: {}, on_site: [], recent: [], selected_date: range.date, demo: true,
     });
     const admin = createSupabaseAdminClient();
     const weekStart = new Date(liveRange.start);
     weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+    // Each worker join is inner so scopeToWorkers can limit managers to their own company's workers.
+    const sessionColumns = "*,worker:profiles!work_sessions_user_id_fkey!inner(id,display_name,company,role,status),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)";
     const [events, sessions, open, weekly, selected] = await Promise.all([
-      admin.from("attendance_events").select("event_type,server_timestamp,worker:profiles!attendance_events_user_id_fkey(id,display_name,company),project:projects!attendance_events_project_id_fkey(id,project_name,customer_name)").gte("server_timestamp", liveRange.start.toISOString()).lt("server_timestamp", liveRange.end.toISOString()),
-      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)").gte("check_in_time", liveRange.start.toISOString()).lt("check_in_time", liveRange.end.toISOString()).order("check_in_time", { ascending: false }),
-      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)").eq("status", "OPEN").order("check_in_time"),
-      admin.from("work_sessions").select("check_in_time,duration_seconds").gte("check_in_time", weekStart.toISOString()),
-      admin.from("work_sessions").select("*,worker:profiles!work_sessions_user_id_fkey(id,display_name,company),project:projects!work_sessions_project_id_fkey(id,project_name,customer_name,timezone),check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(project_timezone_snapshot)").gte("check_in_time", new Date(Date.parse(`${range.date}T00:00:00.000Z`) - 14 * 60 * 60 * 1000).toISOString()).lt("check_in_time", new Date(Date.parse(`${range.date}T00:00:00.000Z`) + 36 * 60 * 60 * 1000).toISOString()).order("check_in_time", { ascending: false }).limit(500),
+      scopeToWorkers(admin.from("attendance_events").select("event_type,server_timestamp,worker:profiles!attendance_events_user_id_fkey!inner(id,display_name,company,role,status),project:projects!attendance_events_project_id_fkey(id,project_name,customer_name)").gte("server_timestamp", liveRange.start.toISOString()).lt("server_timestamp", liveRange.end.toISOString()), scope),
+      scopeToWorkers(admin.from("work_sessions").select(sessionColumns).gte("check_in_time", liveRange.start.toISOString()).lt("check_in_time", liveRange.end.toISOString()).order("check_in_time", { ascending: false }), scope),
+      scopeToWorkers(admin.from("work_sessions").select(sessionColumns).eq("status", "OPEN").order("check_in_time"), scope),
+      scopeToWorkers(admin.from("work_sessions").select("check_in_time,duration_seconds,worker:profiles!work_sessions_user_id_fkey!inner(company,role,status)").gte("check_in_time", weekStart.toISOString()), scope),
+      scopeToWorkers(admin.from("work_sessions").select(sessionColumns).gte("check_in_time", new Date(Date.parse(`${range.date}T00:00:00.000Z`) - 14 * 60 * 60 * 1000).toISOString()).lt("check_in_time", new Date(Date.parse(`${range.date}T00:00:00.000Z`) + 36 * 60 * 60 * 1000).toISOString()).order("check_in_time", { ascending: false }).limit(500), scope),
     ]);
     if (events.error) throw events.error;
     if (sessions.error) throw sessions.error;
     if (open.error) throw open.error;
     if (weekly.error) throw weekly.error;
     if (selected.error) throw selected.error;
-    const eventRows = (events.data || []) as DashboardRow[];
-    const sessionRows = (sessions.data || []) as DashboardRow[];
-    const openRows = (open.data || []) as DashboardRow[];
+    const eventRows = keepInScope(scope, (events.data || []) as DashboardRow[]);
+    const sessionRows = keepInScope(scope, (sessions.data || []) as DashboardRow[]);
+    const openRows = keepInScope(scope, (open.data || []) as DashboardRow[]);
+    const weeklyRows = keepInScope(scope, weekly.data || []);
     const exceptions = sessionRows.filter((row) => ["MISSING_CHECKOUT", "LONG_SESSION"].includes(String(row.status))).length;
     const dailyHours = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(weekStart);
       date.setUTCDate(weekStart.getUTCDate() + index);
       const day = date.toISOString().slice(0, 10);
-      const seconds = (weekly.data || []).filter((row) => String(row.check_in_time).slice(0, 10) === day).reduce((sum, row) => sum + Number(row.duration_seconds || 0), 0);
+      const seconds = weeklyRows.filter((row) => String(row.check_in_time).slice(0, 10) === day).reduce((sum, row) => sum + Number(row.duration_seconds || 0), 0);
       return { day, hours: Number((seconds / 3600).toFixed(2)) };
     });
     return NextResponse.json({
@@ -111,7 +118,7 @@ export async function GET(request: NextRequest) {
         exceptions: peopleFromRows(sessionRows.filter((row) => ["MISSING_CHECKOUT", "LONG_SESSION"].includes(String(row.status))), "check_in_time"),
       },
       on_site: openRows,
-      recent: ((selected.data || []) as DashboardRow[]).filter((row) => localDateKey(String(row.check_in_time), getSessionTimeZone(row)) === range.date),
+      recent: keepInScope(scope, (selected.data || []) as DashboardRow[]).filter((row) => localDateKey(String(row.check_in_time), getSessionTimeZone(row)) === range.date),
       selected_date: range.date,
       daily_hours: dailyHours,
     });

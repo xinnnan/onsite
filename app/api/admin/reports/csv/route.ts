@@ -1,5 +1,5 @@
 import { apiErrorResponse } from "@/lib/api";
-import { requireAuth } from "@/lib/auth-context";
+import { requireScopedAccess } from "@/lib/auth-context";
 import { buildReportData, getSessionSnapshot } from "@/lib/report-data";
 import { DEMO_COMPANY_NAME } from "@/lib/demo";
 import { formatLocalDateTime, localDateKey } from "@/lib/timezones";
@@ -11,7 +11,7 @@ function csvCell(value: unknown) {
 
 export async function POST(request: Request) {
   try {
-    const { demo } = await requireAuth("ADMIN");
+    const { demo, scope } = await requireScopedAccess();
     const body = await request.json() as { project_id?: string; worker_id?: string; start?: string; end?: string };
     if (demo) {
       const demoRows = [
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       ];
       return new Response("\uFEFF" + demoRows.map((row) => row.map(csvCell).join(",")).join("\n"), { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": "attachment; filename=onsite-attendance.csv" } });
     }
-    const report = await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end });
+    const report = await buildReportData({ projectId: body.project_id, workerId: body.worker_id, start: body.start, end: body.end }, scope);
     const header = ["Customer","Project","Site","Project Address","Project Latitude","Project Longitude","Project Time Zone","Date (Local)","Worker","Company","Worker Type","Check In (Local)","Check Out (Local)","Check In (Server UTC)","Check Out (Server UTC)","Total Hours","Manual Entry","Daily Work Summary","Check-In Photo Reference","Check-Out Photo Reference"];
     const rows = report.sessions.map((row) => {
       const worker = Array.isArray(row.worker) ? row.worker[0] : row.worker;
