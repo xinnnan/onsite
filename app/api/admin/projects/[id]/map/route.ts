@@ -1,7 +1,7 @@
 import sharp from "sharp";
 import { NextResponse } from "next/server";
-import { canManageProject } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse } from "@/lib/api";
+import { assertProjectInScope } from "@/lib/admin-data";
 import { requireScopedAccess } from "@/lib/auth-context";
 import { actorTitle, writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,9 +17,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const file = form.get("map");
     if (!(file instanceof File) || !MAP_TYPES.has(file.type) || file.size === 0 || file.size > 15 * 1024 * 1024) throw new ApiError(400, "INVALID_MAP_IMAGE");
     if (demo) return NextResponse.json({ map_image_path: `${id}/site-map.webp`, demo: true });
+    await assertProjectInScope(scope, id);
     const admin = createSupabaseAdminClient();
-    const { data: targetProject } = await admin.from("projects").select("id,map_image_path,company").eq("id", id).maybeSingle();
-    if (!targetProject || !canManageProject(scope, targetProject)) throw new ApiError(404, "PROJECT_NOT_FOUND");
+    const { data: targetProject } = await admin.from("projects").select("id,map_image_path").eq("id", id).maybeSingle();
+    if (!targetProject) throw new ApiError(404, "PROJECT_NOT_FOUND");
     let output: Buffer;
     try {
       output = await sharp(Buffer.from(await file.arrayBuffer())).rotate().resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();

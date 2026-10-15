@@ -1,6 +1,6 @@
 import "server-only";
 import sharp from "sharp";
-import { ALL_ACCESS, canManageProject, isWorkerInScope, normalizeCompany, type AccessScope, type ScopedWorker } from "@/lib/access-scope";
+import { ALL_ACCESS, isWorkerInScope, normalizeCompany, type AccessScope, type ScopedWorker } from "@/lib/access-scope";
 import { ApiError } from "@/lib/api";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
@@ -39,29 +39,40 @@ export async function fetchVisibleWorkers(scope: AccessScope, columns: string, {
 }
 
 /**
- * Managers see their company's own projects plus any project their company's active workers are,
- * or were, assigned to, so reports still cover work on shared projects. They can only change the
- * projects they own (see canManageProject).
+ * A manager's projects: every project their company owns plus every project their company's active
+ * workers are, or were, assigned to. Managers see, edit and staff exactly these, so a project needs
+ * no owning company for its staff's manager to run it.
  */
+export async function fetchCompanyProjectIds(company: string) {
+  const admin = createSupabaseAdminClient();
+  const [assignments, owned] = await Promise.all([
+    admin.from("project_assignments").select("project_id,user:profiles!inner(id)")
+      .eq("user.company", company).eq("user.status", "ACTIVE").eq("user.role", "WORKER"),
+    admin.from("projects").select("id").eq("company", company),
+  ]);
+  if (assignments.error) throw assignments.error;
+  if (owned.error) throw owned.error;
+  return [...new Set([...(assignments.data || []).map((assignment) => String(assignment.project_id)), ...(owned.data || []).map((project) => String(project.id))])];
+}
+
 export async function fetchVisibleProjects(scope: AccessScope, columns: string, { activeOnly = true } = {}) {
   const admin = createSupabaseAdminClient();
   let query = admin.from("projects").select(columns);
   if (activeOnly) query = query.eq("status", "ACTIVE");
   if (scope.kind === "COMPANY") {
-    const [assignments, owned] = await Promise.all([
-      admin.from("project_assignments").select("project_id,user:profiles!inner(id)")
-        .eq("user.company", scope.company).eq("user.status", "ACTIVE").eq("user.role", "WORKER"),
-      admin.from("projects").select("id").eq("company", scope.company),
-    ]);
-    if (assignments.error) throw assignments.error;
-    if (owned.error) throw owned.error;
-    const projectIds = [...new Set([...(assignments.data || []).map((assignment) => String(assignment.project_id)), ...(owned.data || []).map((project) => String(project.id))])];
+    const projectIds = await fetchCompanyProjectIds(scope.company);
     if (!projectIds.length) return [];
     query = query.in("id", projectIds);
   }
   const { data, error } = await query.order("project_name");
   if (error) throw error;
   return (data || []) as unknown as Record<string, unknown>[];
+}
+
+/** Rejects a project outside the scope with the same 404 as one that does not exist. */
+export async function assertProjectInScope(scope: AccessScope, projectId: string) {
+  if (scope.kind === "ALL") return;
+  if (!(await fetchCompanyProjectIds(scope.company)).includes(projectId)) throw new ApiError(404, "PROJECT_NOT_FOUND");
 }
 
 /** Every company name in use, so administrators can pick an existing spelling for a project. */
@@ -88,20 +99,21 @@ export function keepScopedAssignments<Row extends { project_assignments?: unknow
 
 /**
  * Checks every worker and project in an assignment change exists and is in reach: assigning needs
- * active workers and projects, and managers may only pair their own active workers with their
- * company's projects, whether adding or removing.
+ * active workers and projects, and managers may only pair their own active workers with their own
+ * projects, whether adding or removing.
  */
 export async function assertAssignmentTargets(scope: AccessScope, { userIds, projectIds, assigned, errorCode }: { userIds: string[]; projectIds: string[]; assigned: boolean; errorCode: string }) {
   if (!assigned && scope.kind === "ALL") return;
   const admin = createSupabaseAdminClient();
-  const [workers, projects] = await Promise.all([
+  const [workers, projects, scopedProjectIds] = await Promise.all([
     admin.from("profiles").select("id,role,status,company").in("id", userIds),
-    admin.from("projects").select("id,status,company").in("id", projectIds),
+    admin.from("projects").select("id,status").in("id", projectIds),
+    scope.kind === "COMPANY" ? fetchCompanyProjectIds(scope.company) : null,
   ]);
   if (workers.error) throw workers.error;
   if (projects.error) throw projects.error;
   const validWorkers = (workers.data || []).filter((worker) => isWorkerInScope(scope, worker) && (!assigned || (worker.role === "WORKER" && worker.status === "ACTIVE")));
-  const validProjects = (projects.data || []).filter((project) => canManageProject(scope, project) && (!assigned || project.status === "ACTIVE"));
+  const validProjects = (projects.data || []).filter((project) => (!scopedProjectIds || scopedProjectIds.includes(project.id)) && (!assigned || project.status === "ACTIVE"));
   if (validWorkers.length !== userIds.length || validProjects.length !== projectIds.length) throw new ApiError(400, errorCode);
 }
 

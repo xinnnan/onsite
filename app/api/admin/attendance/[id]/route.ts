@@ -16,8 +16,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         check_in_event:attendance_events!work_sessions_check_in_event_id_fkey(*),
         check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(*)
       `).eq("id", id), scope),
-      // Only administrators correct records, so only they need the project picker.
-      scope.kind === "ALL" ? fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,timezone,status") : Promise.resolve([]),
+      // Projects the record can be corrected to.
+      fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,timezone,status"),
     ]);
     // A record outside a manager's scope looks exactly like one that does not exist.
     const data = keepInScope(scope, rows || [])[0];

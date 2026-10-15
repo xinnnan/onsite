@@ -542,6 +542,7 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .modal-form label > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .modal-form input, .modal-form select, .modal-form textarea { width: 100%; min-height: 41px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 9px; outline: 0; color: var(--ink); background: white; font: 14px/1.4 inherit; }
 .modal-form textarea { min-height: 96px; resize: vertical; }
+.modal-form input:disabled { color: var(--muted); background: var(--cream); cursor: not-allowed; }
 .manual-photo-field { display: grid; align-content: start; gap: 6px; }
 .manual-photo-field > span { color: var(--muted); font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
 .photo-drop-zone { min-height: 112px; display: grid; place-items: center; align-content: center; gap: 5px; padding: 13px; border: 1.5px dashed #b9cac2; border-radius: 10px; outline: 0; color: var(--green); background: #f7faf8; text-align: center; cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }

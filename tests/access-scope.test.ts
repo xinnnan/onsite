@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_ACCESS, accessScopeFor, canManageProject, isWorkerInScope, normalizeCompany, roleCompanyError } from "../lib/access-scope.ts";
+import { ALL_ACCESS, accessFieldChanged, accessScopeFor, isWorkerInScope, normalizeCompany, roleCompanyError, scopedNewAccount } from "../lib/access-scope.ts";
 
 const acme = { kind: "COMPANY", company: "Acme Robotics" } as const;
 
@@ -46,24 +46,36 @@ describe("isWorkerInScope", () => {
   });
 });
 
-describe("canManageProject", () => {
-  test("lets administrators manage every project, including shared ones", () => {
-    assert.equal(canManageProject(ALL_ACCESS, { company: "Other Co" }), true);
-    assert.equal(canManageProject(ALL_ACCESS, { company: null }), true);
+describe("scopedNewAccount", () => {
+  const account = { username: "new.worker", role: "WORKER", company: "Other Co" } as const;
+
+  test("leaves administrators' accounts as requested", () => {
+    assert.deepEqual(scopedNewAccount(ALL_ACCESS, account), account);
+    assert.deepEqual(scopedNewAccount(ALL_ACCESS, { ...account, role: "ADMIN" }), { ...account, role: "ADMIN" });
   });
 
-  test("lets managers manage only their company's projects", () => {
-    assert.equal(canManageProject(acme, { company: "Acme Robotics" }), true);
-    assert.equal(canManageProject(acme, { company: " Acme Robotics " }), true);
+  test("puts a manager's new worker in the manager's company", () => {
+    assert.deepEqual(scopedNewAccount(acme, account), { ...account, company: "Acme Robotics" });
+    assert.deepEqual(scopedNewAccount(acme, { username: "x", role: "WORKER" }), { username: "x", role: "WORKER", company: "Acme Robotics" });
   });
 
-  test("keeps shared, other-company and missing projects away from managers", () => {
-    assert.equal(canManageProject(acme, { company: null }), false);
-    assert.equal(canManageProject(acme, { company: "" }), false);
-    assert.equal(canManageProject(acme, {}), false);
-    assert.equal(canManageProject(acme, { company: "Other Co" }), false);
-    assert.equal(canManageProject(acme, { company: "acme robotics" }), false);
-    assert.equal(canManageProject(acme, null), false);
+  test("refuses any other role from a manager", () => {
+    assert.equal(scopedNewAccount(acme, { ...account, role: "MANAGER" }), null);
+    assert.equal(scopedNewAccount(acme, { ...account, role: "ADMIN" }), null);
+  });
+});
+
+describe("accessFieldChanged", () => {
+  test("allows detail-only updates", () => {
+    assert.equal(accessFieldChanged({}), null);
+    assert.equal(accessFieldChanged({ display_name: "New Name", worker_type: "CONTRACTOR" } as object), null);
+  });
+
+  test("names role, company or status changes, even to empty values", () => {
+    assert.equal(accessFieldChanged({ role: "ADMIN" }), "role");
+    assert.equal(accessFieldChanged({ status: "DISABLED" }), "status");
+    assert.equal(accessFieldChanged({ company: null }), "company");
+    assert.equal(accessFieldChanged({ company: "" }), "company");
   });
 });
 

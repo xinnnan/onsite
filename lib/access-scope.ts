@@ -1,8 +1,9 @@
 import type { UserRole } from "./types.ts";
 
 /**
- * What an admin-area account may see. Administrators see every company; a manager sees only the
- * active workers of their own company (`profiles.company`) and those workers' records.
+ * What an admin-area account may see and change. Administrators see every company; a manager works
+ * only with the active workers of their own company (`profiles.company`), their records and their
+ * company's projects (see fetchCompanyProjectIds).
  */
 export type AccessScope =
   | { kind: "ALL" }
@@ -34,10 +35,20 @@ export function isWorkerInScope(scope: AccessScope, worker: ScopedWorker | null 
 }
 
 /**
- * Whether the scope may edit a project and change its assignments. A project's company owns it;
- * projects without one stay with administrators, so managers never edit shared projects.
+ * The account a manager may create: always a worker in their own company, whatever company the
+ * request names. Returns null when a manager asks for any other role, so the API can refuse it.
  */
-export function canManageProject(scope: AccessScope, project: { company?: string | null } | null | undefined) {
-  if (scope.kind === "ALL") return true;
-  return Boolean(project) && normalizeCompany(project?.company) === scope.company;
+export function scopedNewAccount<Account extends { role: UserRole; company?: string | null }>(scope: AccessScope, account: Account) {
+  if (scope.kind === "ALL") return account;
+  return account.role === "WORKER" ? { ...account, company: scope.company } : null;
+}
+
+const ACCESS_FIELDS = ["role", "company", "status"] as const;
+
+/**
+ * Managers edit their workers' details but never their access: role, company and account status
+ * stay with administrators. Returns the first access field an update sets, or null.
+ */
+export function accessFieldChanged(update: Partial<Record<(typeof ACCESS_FIELDS)[number], unknown>>) {
+  return ACCESS_FIELDS.find((field) => update[field] !== undefined) ?? null;
 }

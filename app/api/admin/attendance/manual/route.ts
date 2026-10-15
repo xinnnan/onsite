@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { isWorkerInScope } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse } from "@/lib/api";
+import { assertProjectInScope } from "@/lib/admin-data";
 import { normalizeSelfie } from "@/lib/attendance-image";
 import { cleanupAttendanceAssets, uploadPreparedAttendanceAssets, type PreparedAttendancePhoto } from "@/lib/attendance-service";
-import { requireAuth } from "@/lib/auth-context";
-import { writeAuditLog } from "@/lib/audit";
+import { requireScopedAccess } from "@/lib/auth-context";
+import { actorTitle, writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { safeTimeZone, zonedDateTimeToUtc } from "@/lib/timezones";
 import type { Profile, Project } from "@/lib/types";
@@ -24,7 +26,7 @@ function optionalText(value: FormDataEntryValue | null) {
 
 export async function POST(request: Request) {
   try {
-    const { profile: adminProfile, demo } = await requireAuth("ADMIN");
+    const { profile: adminProfile, demo, scope } = await requireScopedAccess();
     const contentType = request.headers.get("content-type") || "";
     let checkInPhoto: File | null = null;
     let checkOutPhoto: File | null = null;
@@ -59,11 +61,13 @@ export async function POST(request: Request) {
       const [projectResult, workerResult] = await Promise.all([
         admin.from("projects").select("*").eq("id", body.project_id).eq("status", "ACTIVE").maybeSingle(),
         admin.from("profiles").select("*").eq("id", body.user_id).eq("role", "WORKER").eq("status", "ACTIVE").maybeSingle(),
+        // Managers add records only for their own workers on their own projects.
+        assertProjectInScope(scope, body.project_id),
       ]);
       if (projectResult.error) throw projectResult.error;
       if (workerResult.error) throw workerResult.error;
       if (!projectResult.data) throw new ApiError(404, "PROJECT_NOT_ACTIVE");
-      if (!workerResult.data) throw new ApiError(404, "WORKER_NOT_ACTIVE");
+      if (!workerResult.data || !isWorkerInScope(scope, workerResult.data)) throw new ApiError(404, "WORKER_NOT_ACTIVE");
       project = projectResult.data as Project;
       worker = workerResult.data as Profile;
       projectTimeZone = safeTimeZone(project.timezone);
@@ -136,7 +140,7 @@ export async function POST(request: Request) {
       entityType: "WORK_SESSION",
       entityId: data.session.id,
       newValue: data,
-      reason: body.admin_note || "Administrator manually added an attendance record",
+      reason: body.admin_note || `${actorTitle(adminProfile.role)} manually added an attendance record`,
     });
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

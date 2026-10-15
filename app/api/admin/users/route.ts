@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { roleCompanyError } from "@/lib/access-scope";
-import { requireAuth, requireScopedAccess } from "@/lib/auth-context";
-import { writeAuditLog } from "@/lib/audit";
+import { roleCompanyError, scopedNewAccount } from "@/lib/access-scope";
+import { requireScopedAccess } from "@/lib/auth-context";
+import { actorTitle, writeAuditLog } from "@/lib/audit";
 import { usernameToInternalEmail } from "@/lib/auth";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { parseBody, workerCreateSchema } from "@/lib/validation";
@@ -13,7 +13,7 @@ export async function GET() {
     if (demo) return NextResponse.json({ users: [] , demo: true });
     const admin = createSupabaseAdminClient();
     let query = admin.from("profiles").select("*, project_assignments(id,status,project:projects(id,project_name,status))");
-    // Managers get a read-only list of their own company's active workers.
+    // Managers see only their own company's active workers.
     if (scope.kind === "COMPANY") query = query.eq("role", "WORKER").eq("status", "ACTIVE").eq("company", scope.company);
     const { data, error } = await query.order("display_name");
     if (error) throw error;
@@ -23,8 +23,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { profile: adminProfile, demo } = await requireAuth("ADMIN");
-    const body = parseBody(workerCreateSchema, await request.json());
+    const { profile: adminProfile, demo, scope } = await requireScopedAccess();
+    // A manager's new account is always a worker in the manager's own company.
+    const body = scopedNewAccount(scope, parseBody(workerCreateSchema, await request.json()));
+    if (!body) throw new ApiError(403, "MANAGER_CANNOT_CHANGE_ACCESS");
     const companyError = roleCompanyError(body.role, body.company);
     if (companyError) throw new ApiError(400, companyError);
     if (demo) return NextResponse.json({ user: { id: crypto.randomUUID(), ...body, status: "ACTIVE" }, demo: true }, { status: 201 });
@@ -43,7 +45,7 @@ export async function POST(request: Request) {
       await admin.auth.admin.deleteUser(authData.user.id);
       throw new ApiError(409, "PROFILE_CREATE_FAILED", error?.message);
     }
-    await writeAuditLog({ adminUserId: adminProfile.id, action: "WORKER_CREATED", entityType: "PROFILE", entityId: data.id, newValue: { ...data, auth_user_id: "[REDACTED]" }, reason: "Administrator created account" });
+    await writeAuditLog({ adminUserId: adminProfile.id, action: "WORKER_CREATED", entityType: "PROFILE", entityId: data.id, newValue: { ...data, auth_user_id: "[REDACTED]" }, reason: `${actorTitle(adminProfile.role)} created account` });
     return NextResponse.json({ user: data }, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.name === "VALIDATION_ERROR") return apiErrorResponse(new ApiError(400, "VALIDATION_ERROR", error.message));

@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { isWorkerInScope } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse, assertFound } from "@/lib/api";
+import { assertProjectInScope } from "@/lib/admin-data";
 import { normalizeSelfie } from "@/lib/attendance-image";
 import { cleanupAttendanceAssetPaths, regenerateAttendanceWatermark, uploadPreparedAttendanceAssets, type PreparedAttendancePhoto } from "@/lib/attendance-service";
-import { requireAuth } from "@/lib/auth-context";
+import { requireAuth, requireScopedAccess } from "@/lib/auth-context";
 import { writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, zonedDateTimeToUtc } from "@/lib/timezones";
@@ -85,7 +87,7 @@ function existingEventProjectFields(event: AttendanceEvent) {
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { profile: adminProfile, demo } = await requireAuth("ADMIN");
+    const { profile: adminProfile, demo, scope } = await requireScopedAccess();
     const { id } = await params;
     const contentType = request.headers.get("content-type") || "";
     let checkInPhoto: File | null = null;
@@ -130,12 +132,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(*)
     `).eq("id", id).single();
     assertFound(oldValue, "SESSION_NOT_FOUND");
+    // Managers correct only their own active workers' records, which they alone can see.
+    if (!isWorkerInScope(scope, one(oldValue.worker))) throw new ApiError(404, "SESSION_NOT_FOUND");
     if ((checkInPhoto || checkOutPhoto) && !oldValue.is_manual_entry) throw new ApiError(403, "MANUAL_ATTENDANCE_PHOTOS_ONLY");
 
     const existingProject = one(oldValue.project) as Project | null;
     const projectChanged = Boolean(body.project_id && body.project_id !== oldValue.project_id);
     let project = existingProject;
     if (projectChanged) {
+      await assertProjectInScope(scope, body.project_id!);
       const { data: selectedProject, error: selectedProjectError } = await admin.from("projects").select("*").eq("id", body.project_id).eq("status", "ACTIVE").maybeSingle();
       if (selectedProjectError) throw selectedProjectError;
       if (!selectedProject) throw new ApiError(404, "PROJECT_NOT_ACTIVE");

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { normalizeCompany } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse } from "@/lib/api";
-import { fetchCompanyNames, keepScopedAssignments } from "@/lib/admin-data";
+import { fetchCompanyNames, fetchCompanyProjectIds, keepScopedAssignments } from "@/lib/admin-data";
 import { requireScopedAccess } from "@/lib/auth-context";
 import { actorTitle, writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -13,8 +13,12 @@ export async function GET() {
     if (demo) return NextResponse.json({ projects: [], companies: [], demo: true });
     const admin = createSupabaseAdminClient();
     let query = admin.from("projects").select("*, project_assignments(id,status,user:profiles(id,display_name,company,role,status))");
-    // Managers manage only the projects their company owns.
-    if (scope.kind === "COMPANY") query = query.eq("company", scope.company);
+    // Managers manage the projects their company owns or their people are assigned to.
+    if (scope.kind === "COMPANY") {
+      const projectIds = await fetchCompanyProjectIds(scope.company);
+      if (!projectIds.length) return NextResponse.json({ projects: [], companies: [] });
+      query = query.in("id", projectIds);
+    }
     const [{ data, error }, companies] = await Promise.all([query.order("project_name"), scope.kind === "ALL" ? fetchCompanyNames() : Promise.resolve([])]);
     if (error) throw error;
     const projects = await Promise.all((data || []).map(async (row) => {
