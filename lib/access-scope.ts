@@ -29,9 +29,30 @@ export function accessScopeFor(profile: { role: UserRole; company: string | null
   return profile.role === "MANAGER" && company ? { kind: "COMPANY", company } : null;
 }
 
+/** Everyone who clocks in on site: workers, and managers who work on their company's projects too. */
+export const CLOCK_IN_ROLES = ["WORKER", "MANAGER"] as const;
+
+/** Whether someone may clock in and be assigned to projects: an active worker or manager. */
+export function canClockIn(person: ScopedWorker | null | undefined) {
+  return (CLOCK_IN_ROLES as readonly (string | null | undefined)[]).includes(person?.role) && person?.status === "ACTIVE";
+}
+
+/**
+ * Whose attendance a scope sees, in records, the dashboard and reports: for managers, their own
+ * company's active workers and managers, themselves included.
+ */
+export function isPersonInScope(scope: AccessScope, person: ScopedWorker | null | undefined) {
+  if (scope.kind === "ALL") return true;
+  return canClockIn(person) && normalizeCompany(person?.company) === scope.company;
+}
+
+/**
+ * Whose accounts and attendance records a scope may change: for managers, only their own company's
+ * active workers. Managers' records, their own included, are changed by administrators.
+ */
 export function isWorkerInScope(scope: AccessScope, worker: ScopedWorker | null | undefined) {
   if (scope.kind === "ALL") return true;
-  return worker?.role === "WORKER" && worker.status === "ACTIVE" && normalizeCompany(worker.company) === scope.company;
+  return worker?.role === "WORKER" && isPersonInScope(scope, worker);
 }
 
 /**

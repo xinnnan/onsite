@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CLOCK_IN_ROLES } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse } from "@/lib/api";
 import { requireAuth } from "@/lib/auth-context";
 import { checkIn } from "@/lib/attendance-service";
@@ -7,7 +8,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const { profile, demo } = await requireAuth("WORKER");
+    const { profile, demo } = await requireAuth(CLOCK_IN_ROLES);
     const form = await request.formData();
     const projectId = form.get("project_id");
     const photo = form.get("photo");

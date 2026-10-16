@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
-import { isWorkerInScope } from "@/lib/access-scope";
+import { isPersonInScope, isWorkerInScope } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse, assertFound } from "@/lib/api";
 import { assertProjectInScope } from "@/lib/admin-data";
 import { normalizeSelfie } from "@/lib/attendance-image";
@@ -132,8 +132,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       check_out_event:attendance_events!work_sessions_check_out_event_id_fkey(*)
     `).eq("id", id).single();
     assertFound(oldValue, "SESSION_NOT_FOUND");
-    // Managers correct only their own active workers' records, which they alone can see.
-    if (!isWorkerInScope(scope, one(oldValue.worker))) throw new ApiError(404, "SESSION_NOT_FOUND");
+    // Managers correct their own active workers' records; managers' records are corrected by administrators.
+    if (!isPersonInScope(scope, one(oldValue.worker))) throw new ApiError(404, "SESSION_NOT_FOUND");
+    if (!isWorkerInScope(scope, one(oldValue.worker))) throw new ApiError(403, "MANAGER_RECORDS_ADMIN_ONLY");
     if ((checkInPhoto || checkOutPhoto) && !oldValue.is_manual_entry) throw new ApiError(403, "MANUAL_ATTENDANCE_PHOTOS_ONLY");
 
     const existingProject = one(oldValue.project) as Project | null;

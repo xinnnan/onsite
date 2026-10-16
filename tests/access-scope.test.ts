@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { ALL_ACCESS, accessFieldChanged, accessScopeFor, isWorkerInScope, normalizeCompany, roleCompanyError, scopedNewAccount } from "../lib/access-scope.ts";
+import { ALL_ACCESS, accessFieldChanged, accessScopeFor, canClockIn, isPersonInScope, isWorkerInScope, normalizeCompany, roleCompanyError, scopedNewAccount } from "../lib/access-scope.ts";
 
 const acme = { kind: "COMPANY", company: "Acme Robotics" } as const;
 
@@ -43,6 +43,45 @@ describe("isWorkerInScope", () => {
     assert.equal(isWorkerInScope(acme, { ...worker, role: "ADMIN" }), false);
     assert.equal(isWorkerInScope(acme, null), false);
     assert.equal(isWorkerInScope(acme, undefined), false);
+  });
+});
+
+describe("canClockIn", () => {
+  test("lets active workers and managers clock in", () => {
+    assert.equal(canClockIn({ role: "WORKER", status: "ACTIVE" }), true);
+    assert.equal(canClockIn({ role: "MANAGER", status: "ACTIVE" }), true);
+  });
+
+  test("keeps administrators and disabled people out", () => {
+    assert.equal(canClockIn({ role: "ADMIN", status: "ACTIVE" }), false);
+    assert.equal(canClockIn({ role: "MANAGER", status: "DISABLED" }), false);
+    assert.equal(canClockIn(null), false);
+  });
+});
+
+describe("isPersonInScope", () => {
+  const person = { role: "MANAGER", status: "ACTIVE", company: "Acme Robotics" };
+
+  test("lets administrators see everyone", () => {
+    assert.equal(isPersonInScope(ALL_ACCESS, { ...person, role: "ADMIN", company: "Other Co" }), true);
+  });
+
+  test("shows managers the active workers and managers of their company", () => {
+    assert.equal(isPersonInScope(acme, person), true);
+    assert.equal(isPersonInScope(acme, { ...person, role: "WORKER" }), true);
+  });
+
+  test("hides administrators, other companies, disabled people and missing people from managers", () => {
+    assert.equal(isPersonInScope(acme, { ...person, role: "ADMIN" }), false);
+    assert.equal(isPersonInScope(acme, { ...person, company: "Other Co" }), false);
+    assert.equal(isPersonInScope(acme, { ...person, status: "DISABLED" }), false);
+    assert.equal(isPersonInScope(acme, { ...person, role: null }), false);
+    assert.equal(isPersonInScope(acme, null), false);
+  });
+
+  test("lets managers change only workers, not managers", () => {
+    assert.equal(isWorkerInScope(acme, person), false);
+    assert.equal(isWorkerInScope(ALL_ACCESS, person), true);
   });
 });
 

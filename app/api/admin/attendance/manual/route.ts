@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isWorkerInScope } from "@/lib/access-scope";
+import { CLOCK_IN_ROLES, isPersonInScope, isWorkerInScope } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse } from "@/lib/api";
 import { assertProjectInScope } from "@/lib/admin-data";
 import { normalizeSelfie } from "@/lib/attendance-image";
@@ -60,14 +60,15 @@ export async function POST(request: Request) {
       const admin = createSupabaseAdminClient();
       const [projectResult, workerResult] = await Promise.all([
         admin.from("projects").select("*").eq("id", body.project_id).eq("status", "ACTIVE").maybeSingle(),
-        admin.from("profiles").select("*").eq("id", body.user_id).eq("role", "WORKER").eq("status", "ACTIVE").maybeSingle(),
+        admin.from("profiles").select("*").eq("id", body.user_id).in("role", [...CLOCK_IN_ROLES]).eq("status", "ACTIVE").maybeSingle(),
         // Managers add records only for their own workers on their own projects.
         assertProjectInScope(scope, body.project_id),
       ]);
       if (projectResult.error) throw projectResult.error;
       if (workerResult.error) throw workerResult.error;
       if (!projectResult.data) throw new ApiError(404, "PROJECT_NOT_ACTIVE");
-      if (!workerResult.data || !isWorkerInScope(scope, workerResult.data)) throw new ApiError(404, "WORKER_NOT_ACTIVE");
+      if (!workerResult.data || !isPersonInScope(scope, workerResult.data)) throw new ApiError(404, "WORKER_NOT_ACTIVE");
+      if (!isWorkerInScope(scope, workerResult.data)) throw new ApiError(403, "MANAGER_RECORDS_ADMIN_ONLY");
       project = projectResult.data as Project;
       worker = workerResult.data as Profile;
       projectTimeZone = safeTimeZone(project.timezone);

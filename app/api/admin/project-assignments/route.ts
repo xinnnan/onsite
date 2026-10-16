@@ -26,13 +26,13 @@ export async function GET(request: Request) {
     const admin = createSupabaseAdminClient();
     const [assignments, users, projects] = await Promise.all([
       admin.from("project_assignments").select("*,user:profiles(id,username,display_name,company,status),project:projects(id,project_code,project_name,status)").order("assigned_at", { ascending: false }),
-      fetchVisibleWorkers(scope, "id,username,display_name,company,worker_type,status", { activeOnly }),
+      fetchVisibleWorkers(scope, "id,username,display_name,company,worker_type,role,status", { activeOnly }),
       fetchVisibleProjects(scope, "id,project_code,project_name,customer_name,site_name,timezone,status,company", { activeOnly }),
     ]);
     if (assignments.error) throw assignments.error;
     const visibleUserIds = new Set(users.map((user) => user.id));
     const visibleProjectIds = new Set(projects.map((project) => project.id));
-    // Managers only ever see their own workers' assignments.
+    // Managers only ever see their own company's people's assignments.
     const visibleAssignments = activeOnly || scope.kind === "COMPANY"
       ? (assignments.data || []).filter((assignment) => visibleUserIds.has(assignment.user_id) && visibleProjectIds.has(assignment.project_id))
       : assignments.data || [];

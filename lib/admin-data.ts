@@ -1,22 +1,27 @@
 import "server-only";
 import sharp from "sharp";
-import { ALL_ACCESS, isWorkerInScope, normalizeCompany, type AccessScope, type ScopedWorker } from "@/lib/access-scope";
+import { ALL_ACCESS, CLOCK_IN_ROLES, canClockIn, isPersonInScope, normalizeCompany, type AccessScope, type ScopedWorker } from "@/lib/access-scope";
 import { ApiError } from "@/lib/api";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
 
 type PrivateAssetBucket = "project-assets" | "attendance-originals" | "attendance-watermarked";
 
+/** PostgREST's form of an `in` list for CLOCK_IN_ROLES. */
+const CLOCK_IN_ROLE_LIST = `(${CLOCK_IN_ROLES.join(",")})`;
+
 /**
- * Filters a query down to the scope's workers. The query must embed its worker as
+ * Filters a query down to the scope's people (see isPersonInScope). The query must embed its worker as
  * `worker:profiles!<fk>!inner(...,company,role,status)`: the join has to be inner for the filter to
  * drop rows, and `keepInScope` reads those columns. Every scoped table's user_id is a NOT NULL
  * foreign key, so the inner join returns the same rows as a left join for administrators.
  */
-export function scopeToWorkers<Query extends { match(filters: Record<string, string>): unknown }>(query: Query, scope: AccessScope): Query {
+export function scopeToWorkers<Query extends { match(filters: Record<string, string>): unknown; filter(column: string, operator: string, value: unknown): unknown }>(query: Query, scope: AccessScope): Query {
   if (scope.kind === "ALL") return query;
-  // PostgREST builders return themselves, so the filtered query keeps its type.
-  return query.match({ "worker.company": scope.company, "worker.status": "ACTIVE", "worker.role": "WORKER" }) as Query;
+  // PostgREST builders add each filter to themselves, so the query keeps its type.
+  query.match({ "worker.company": scope.company, "worker.status": "ACTIVE" });
+  query.filter("worker.role", "in", CLOCK_IN_ROLE_LIST);
+  return query;
 }
 
 /** Re-checks fetched rows in code, so a query that loses its scope filter still cannot leak rows. */
@@ -24,13 +29,14 @@ export function keepInScope<Row>(scope: AccessScope, rows: Row[]) {
   if (scope.kind === "ALL") return rows;
   return rows.filter((row) => {
     const worker = (row as { worker?: unknown }).worker;
-    return isWorkerInScope(scope, (Array.isArray(worker) ? worker[0] : worker) as ScopedWorker | undefined);
+    return isPersonInScope(scope, (Array.isArray(worker) ? worker[0] : worker) as ScopedWorker | undefined);
   });
 }
 
+/** Everyone whose attendance the scope sees: workers and managers (see isPersonInScope). */
 export async function fetchVisibleWorkers(scope: AccessScope, columns: string, { activeOnly = true } = {}) {
   const admin = createSupabaseAdminClient();
-  let query = admin.from("profiles").select(columns).eq("role", "WORKER");
+  let query = admin.from("profiles").select(columns).in("role", [...CLOCK_IN_ROLES]);
   if (activeOnly || scope.kind === "COMPANY") query = query.eq("status", "ACTIVE");
   if (scope.kind === "COMPANY") query = query.eq("company", scope.company);
   const { data, error } = await query.order("display_name");
@@ -40,14 +46,14 @@ export async function fetchVisibleWorkers(scope: AccessScope, columns: string, {
 
 /**
  * A manager's projects: every project their company owns plus every project their company's active
- * workers are, or were, assigned to. Managers see, edit and staff exactly these, so a project needs
+ * workers or managers are, or were, assigned to. Managers see, edit and staff exactly these, so a project needs
  * no owning company for its staff's manager to run it.
  */
 export async function fetchCompanyProjectIds(company: string) {
   const admin = createSupabaseAdminClient();
   const [assignments, owned] = await Promise.all([
     admin.from("project_assignments").select("project_id,user:profiles!inner(id)")
-      .eq("user.company", company).eq("user.status", "ACTIVE").eq("user.role", "WORKER"),
+      .eq("user.company", company).eq("user.status", "ACTIVE").in("user.role", [...CLOCK_IN_ROLES]),
     admin.from("projects").select("id").eq("company", company),
   ]);
   if (assignments.error) throw assignments.error;
@@ -88,19 +94,19 @@ export async function fetchCompanyNames() {
   return [...new Set(names)].sort((a, b) => a.localeCompare(b));
 }
 
-/** Drops embedded project assignments of workers outside the scope. */
+/** Drops embedded project assignments of people outside the scope. */
 export function keepScopedAssignments<Row extends { project_assignments?: unknown }>(scope: AccessScope, project: Row) {
   if (scope.kind === "ALL" || !Array.isArray(project.project_assignments)) return project;
   return { ...project, project_assignments: project.project_assignments.filter((assignment) => {
     const user = (assignment as { user?: unknown }).user;
-    return isWorkerInScope(scope, (Array.isArray(user) ? user[0] : user) as ScopedWorker | undefined);
+    return isPersonInScope(scope, (Array.isArray(user) ? user[0] : user) as ScopedWorker | undefined);
   }) };
 }
 
 /**
- * Checks every worker and project in an assignment change exists and is in reach: assigning needs
- * active workers and projects, and managers may only pair their own active workers with their own
- * projects, whether adding or removing.
+ * Checks every person and project in an assignment change exists and is in reach: assigning needs
+ * active people who clock in and active projects, and managers may only pair their own company's
+ * active people, themselves included, with their own projects, whether adding or removing.
  */
 export async function assertAssignmentTargets(scope: AccessScope, { userIds, projectIds, assigned, errorCode }: { userIds: string[]; projectIds: string[]; assigned: boolean; errorCode: string }) {
   if (!assigned && scope.kind === "ALL") return;
@@ -112,7 +118,7 @@ export async function assertAssignmentTargets(scope: AccessScope, { userIds, pro
   ]);
   if (workers.error) throw workers.error;
   if (projects.error) throw projects.error;
-  const validWorkers = (workers.data || []).filter((worker) => isWorkerInScope(scope, worker) && (!assigned || (worker.role === "WORKER" && worker.status === "ACTIVE")));
+  const validWorkers = (workers.data || []).filter((worker) => isPersonInScope(scope, worker) && (!assigned || canClockIn(worker)));
   const validProjects = (projects.data || []).filter((project) => (!scopedProjectIds || scopedProjectIds.includes(project.id)) && (!assigned || project.status === "ACTIVE"));
   if (validWorkers.length !== userIds.length || validProjects.length !== projectIds.length) throw new ApiError(400, errorCode);
 }
