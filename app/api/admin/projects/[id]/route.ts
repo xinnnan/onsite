@@ -5,6 +5,7 @@ import { assertProjectInScope, fetchCompanyNames, keepScopedAssignments } from "
 import { requireScopedAccess } from "@/lib/auth-context";
 import { actorTitle, writeAuditLog } from "@/lib/audit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { normalizeProjectState } from "@/lib/us-states";
 import { parseBody, projectUpdateSchema } from "@/lib/validation";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +44,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const admin = createSupabaseAdminClient();
     const { data: oldValue } = await admin.from("projects").select("*").eq("id", id).maybeSingle();
     if (!oldValue) throw new ApiError(404, "PROJECT_NOT_FOUND");
-    const { data, error } = await admin.from("projects").update(body).eq("id", id).select().single();
+    const update = body.state === undefined ? body : { ...body, state: normalizeProjectState(body.country ?? oldValue.country, body.state) };
+    const { data, error } = await admin.from("projects").update(update).eq("id", id).select().single();
     if (error || !data) throw new ApiError(409, "PROJECT_UPDATE_FAILED", error?.message);
     await writeAuditLog({ adminUserId: adminProfile.id, action: "PROJECT_UPDATED", entityType: "PROJECT", entityId: id, oldValue, newValue: data, reason: `${actorTitle(adminProfile.role)} updated project` });
     return NextResponse.json({ project: data });

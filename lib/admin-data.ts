@@ -2,6 +2,7 @@ import "server-only";
 import sharp from "sharp";
 import { ALL_ACCESS, CLOCK_IN_ROLES, canClockIn, isPersonInScope, normalizeCompany, type AccessScope, type ScopedWorker } from "@/lib/access-scope";
 import { ApiError } from "@/lib/api";
+import { nextProjectCode, PROJECT_CODE_PREFIX } from "@/lib/project-codes";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getSessionTimeZone, localDateKey } from "@/lib/timezones";
 
@@ -79,6 +80,14 @@ export async function fetchVisibleProjects(scope: AccessScope, columns: string, 
 export async function assertProjectInScope(scope: AccessScope, projectId: string) {
   if (scope.kind === "ALL") return;
   if (!(await fetchCompanyProjectIds(scope.company)).includes(projectId)) throw new ApiError(404, "PROJECT_NOT_FOUND");
+}
+
+/** The code the next new project gets (see nextProjectCode). */
+export async function fetchNextProjectCode() {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.from("projects").select("project_code").ilike("project_code", `${PROJECT_CODE_PREFIX}%`);
+  if (error) throw error;
+  return nextProjectCode((data || []).map((project) => project.project_code));
 }
 
 /** Every company name in use, so administrators can pick an existing spelling for a project. */

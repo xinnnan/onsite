@@ -55,8 +55,9 @@ function coordinatePairIsValid(value: { latitude?: number | null; longitude?: nu
 }
 
 // Defaults belong to creation only: Zod 4 applies them inside .partial() too, which would reset
-// country and status on every partial update.
-export const projectSchema = projectFields.extend({
+// country and status on every partial update. The server numbers new projects, so a code sent with
+// one is dropped.
+export const projectSchema = projectFields.omit({ project_code: true }).extend({
   country: projectFields.shape.country.default("United States"),
   status: projectFields.shape.status.default("ACTIVE"),
 }).refine(coordinatePairIsValid, {
