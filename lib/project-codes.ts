@@ -1,10 +1,10 @@
-/** New projects are numbered in order: PRJ-0001, PRJ-0002, … Codes in other formats are left alone. */
-export const PROJECT_CODE_PREFIX = "PRJ-";
+/** New projects are numbered in order: P000001, P000002, … Codes in other formats are left alone. */
+export const PROJECT_CODE_PREFIX = "P";
 
-const PROJECT_CODE_DIGITS = 4;
-const SEQUENCED_CODE = /^PRJ-(\d+)$/i;
+const PROJECT_CODE_DIGITS = 6;
+const SEQUENCED_CODE = /^P(\d+)$/i;
 
-/** The code after the highest sequenced code in use; widens past PRJ-9999 instead of wrapping. */
+/** The code after the highest sequenced code in use; widens past P999999 instead of wrapping. */
 export function nextProjectCode(existingCodes: Iterable<string | null | undefined>) {
   let highest = 0;
   for (const code of existingCodes) {

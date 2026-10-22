@@ -16,7 +16,7 @@ export function cellText(value: CellValue) {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
-/** Orders numbers by size and text naturally (PRJ-0002 before PRJ-0010); blanks always come last. */
+/** Orders numbers by size and text naturally (P2 before P10); blanks always come last. */
 export function compareCells(a: CellValue, b: CellValue) {
   const left = cellText(a);
   const right = cellText(b);
