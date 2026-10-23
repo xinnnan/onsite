@@ -2,7 +2,9 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "@/lib/api";
 import { createWatermarkedPhoto, normalizeSelfie } from "@/lib/attendance-image";
+import { checkedInToday } from "@/lib/attendance-rules";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { safeTimeZone } from "@/lib/timezones";
 import type { Profile, Project } from "@/lib/types";
 
 function datePath(date: Date) {
@@ -161,6 +163,12 @@ export async function checkIn({ profile, projectId, photo, clientCaptureTime }: 
   if (openSession) throw new ApiError(409, "OPEN_SESSION_EXISTS");
 
   const project = projectData as Project;
+  // People clock in once a day. A genuine second shift is added by an administrator or manager.
+  const now = new Date();
+  const { data: recent, error: recentError } = await admin.from("work_sessions").select("check_in_time,status")
+    .eq("user_id", profile.id).neq("status", "VOID").gte("check_in_time", new Date(now.valueOf() - 36 * 60 * 60 * 1000).toISOString());
+  if (recentError) throw recentError;
+  if (checkedInToday(recent || [], now, safeTimeZone(project.timezone))) throw new ApiError(409, "ALREADY_CHECKED_IN_TODAY");
   const eventId = randomUUID();
   const serverTimestamp = new Date();
   const assets = await uploadAttendanceAssets({ project, profile, photo, eventType: "CHECK_IN", timestamp: serverTimestamp, eventId });

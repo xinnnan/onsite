@@ -552,6 +552,11 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
 .assignment-selector select { height: 39px; min-width: 240px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
 .filter-grid.attendance-filters { grid-template-columns: repeat(4, minmax(120px, 1fr)); }
 .filter-grid.attendance-filters button { justify-content: center; }
+.filter-actions { display: flex; gap: 8px; }
+.filter-actions button { flex: 1; }
+.filter-grid button.secondary-button { border: 1px solid var(--line); color: var(--green); background: white; }
+.back-link { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; padding: 7px 11px 7px 8px; border: 1px solid var(--line); border-radius: 9px; color: var(--green); background: white; font-size: 13px; font-weight: 800; cursor: pointer; }
+.back-link:hover { background: #f1f5f3; }
 .attendance-photo { width: 100%; aspect-ratio: 4/3; display: block; object-fit: contain; background: #e4ebe7; }
 .record-footer { grid-template-columns: .7fr 1fr 1fr 1.7fr 1.2fr auto; }
 .record-footer > .record-action-buttons { display: flex; align-items: center; gap: 8px; }
@@ -641,6 +646,7 @@ td a { color: var(--green); }.mono { font-family: var(--font-geist-mono), monosp
   .attendance-day-heading { align-items: flex-start; flex-direction: column; }
   .form-grid { grid-template-columns: 1fr; }.form-grid label.wide { grid-column: auto; }
   .filter-grid { grid-template-columns: 1fr 1fr; }.filter-grid button { grid-column: span 2; justify-content: center; }
+  .filter-grid .filter-actions { grid-column: span 2; }
   .record-hero { grid-template-columns: 1fr; }.record-footer { grid-template-columns: 1fr; }.photo-meta { grid-template-columns: 1fr; gap: 12px; }
   .report-builder { padding: 18px; }
   .report-builder-heading { align-items: flex-start; }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { isPersonInScope, isWorkerInScope } from "@/lib/access-scope";
 import { ApiError, apiErrorResponse, assertFound } from "@/lib/api";
 import { assertProjectInScope } from "@/lib/admin-data";
+import { overlappingSession } from "@/lib/attendance-rules";
 import { normalizeSelfie } from "@/lib/attendance-image";
 import { cleanupAttendanceAssetPaths, regenerateAttendanceWatermark, uploadPreparedAttendanceAssets, type PreparedAttendancePhoto } from "@/lib/attendance-service";
 import { requireAuth, requireScopedAccess } from "@/lib/auth-context";
@@ -162,6 +163,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (finalStatus === "MISSING_CHECKOUT" && finalCheckOut) throw new ApiError(400, "MISSING_CHECKOUT_CANNOT_HAVE_CHECK_OUT");
     if (finalStatus === "OPEN" && finalCheckOut) throw new ApiError(400, "OPEN_SESSION_CANNOT_HAVE_CHECK_OUT");
     if (checkOutPhoto && !finalCheckOut) throw new ApiError(400, "CHECK_OUT_PHOTO_REQUIRES_TIME");
+    // A person is in one place at a time: corrected times may not overlap their other records,
+    // the same rule create_manual_attendance applies to new ones.
+    let neighbours = admin.from("work_sessions").select("id,check_in_time,check_out_time,status").eq("user_id", oldValue.user_id).neq("id", id).neq("status", "VOID");
+    if (finalCheckOut) neighbours = neighbours.lt("check_in_time", finalCheckOut.toISOString());
+    const { data: otherSessions, error: neighboursError } = await neighbours;
+    if (neighboursError) throw neighboursError;
+    if (overlappingSession({ start: finalCheckIn, end: finalCheckOut }, otherSessions || [])) throw new ApiError(409, "ATTENDANCE_TIME_OVERLAP");
 
     const worker = one(oldValue.worker) as Profile | null;
     const existingCheckInEvent = one(oldValue.check_in_event) as AttendanceEvent | null;
