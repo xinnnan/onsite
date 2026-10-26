@@ -93,10 +93,10 @@ const photoUploadText = {
 } as const;
 
 const adminWorkSummaryText = {
-  zh: { label:"今日工作总结（可选）",placeholder:"例如：今天完成 6 台机器人的例行检查，更换 2 个传感器，并测试运行状态正常。",rule:"如填写，需满足任一项：20 个汉字、10 个英文单词或 40 个有效字符。",error:"今日工作总结需达到 20 个汉字、10 个英文单词或 40 个有效字符中的任一项。" },
-  en: { label:"Today's work summary (optional)",placeholder:"Example: Completed inspections on six robots, replaced two sensors, and verified normal operation.",rule:"If entered, meet one: 20 Chinese characters, 10 English words, or 40 effective characters.",error:"The work summary must contain 20 Chinese characters, 10 English words, or 40 effective characters." },
-  es: { label:"Resumen del trabajo de hoy (opcional)",placeholder:"Ejemplo: Inspeccioné seis robots, reemplacé dos sensores y verifiqué su funcionamiento normal.",rule:"Si se completa, cumple una opción: 20 caracteres chinos, 10 palabras o 40 caracteres efectivos.",error:"El resumen debe contener 20 caracteres chinos, 10 palabras o 40 caracteres efectivos." },
-  ko: { label:"오늘의 작업 요약(선택)",placeholder:"예: 로봇 6대를 점검하고 센서 2개를 교체한 후 정상 작동을 확인했습니다.",rule:"입력하는 경우 한자 20자, 영문 10단어 또는 유효 문자 40자 중 하나를 충족해야 합니다.",error:"작업 요약은 한자 20자, 영문 10단어 또는 유효 문자 40자 중 하나를 충족해야 합니다." },
+  zh: { label:"今日工作总结（可选）",placeholder:"例如：今天完成 6 台机器人的例行检查，更换 2 个传感器，并测试运行状态正常。",rule:"如填写，需满足任一项：20 个汉字、10 个英文单词或 40 个有效字符（重复字符和数字不计入）。",error:"今日工作总结需达到 20 个汉字、10 个英文单词或 40 个有效字符中的任一项，重复字符和数字不计入。" },
+  en: { label:"Today's work summary (optional)",placeholder:"Example: Completed inspections on six robots, replaced two sensors, and verified normal operation.",rule:"If entered, meet one: 20 Chinese characters, 10 English words, or 40 effective characters (repeated characters and digits do not count).",error:"The work summary must contain 20 Chinese characters, 10 English words, or 40 effective characters. Repeated characters and digits do not count." },
+  es: { label:"Resumen del trabajo de hoy (opcional)",placeholder:"Ejemplo: Inspeccioné seis robots, reemplacé dos sensores y verifiqué su funcionamiento normal.",rule:"Si se completa, cumple una opción: 20 caracteres chinos, 10 palabras o 40 caracteres efectivos (no cuentan caracteres repetidos ni dígitos).",error:"El resumen debe contener 20 caracteres chinos, 10 palabras o 40 caracteres efectivos. No cuentan caracteres repetidos ni dígitos." },
+  ko: { label:"오늘의 작업 요약(선택)",placeholder:"예: 로봇 6대를 점검하고 센서 2개를 교체한 후 정상 작동을 확인했습니다.",rule:"입력하는 경우 한자 20자, 영문 10단어 또는 유효 문자 40자 중 하나를 충족해야 합니다(반복 문자와 숫자는 제외).",error:"작업 요약은 한자 20자, 영문 10단어 또는 유효 문자 40자 중 하나를 충족해야 합니다. 반복 문자와 숫자는 제외됩니다." },
 } as const;
 
 const assignmentText = {
